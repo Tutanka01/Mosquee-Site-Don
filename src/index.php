@@ -1,6 +1,5 @@
 <?php
 include 'db.php';
-// Mois actuel
 $currentMonth = date('Y-m');
 ?>
 <!DOCTYPE html>
@@ -14,8 +13,8 @@ $currentMonth = date('Y-m');
 <body>
     <div class="container">
         <h1>Formulaire de Contribution</h1>
+        <p id="infoMessage" style="color:green;"></p>
         <form id="contributionForm" action="insert.php" method="POST">
-            <!-- Type de Contribution -->
             <fieldset>
                 <legend>Type de Contribution</legend>
                 <label>Type de contribution :
@@ -35,29 +34,29 @@ $currentMonth = date('Y-m');
                     </select>
                 </label>
                 <button type="button" id="addAdherentBtn">Ajouter un nouvel adhérent</button>
+                <p id="noAdherentMessage" style="color:red;display:none;">Aucun adhérent disponible. Veuillez en ajouter un.</p>
 
-                <label>Nom Adhérent : <input type="text" name="nom" id="nom" disabled></label>
-                <label>Prénom Adhérent : <input type="text" name="prenom" id="prenom" disabled></label>
-                <label>Email Adhérent : <input type="email" name="email" id="email" disabled></label>
-                <label>Téléphone Adhérent : <input type="text" name="telephone" id="telephone" disabled></label>
+                <label>Nom Adhérent : <input type="text" name="nom" id="nom" placeholder="Nom de l'adhérent" disabled></label>
+                <label>Prénom Adhérent : <input type="text" name="prenom" id="prenom" placeholder="Prénom de l'adhérent" disabled></label>
+                <label>Email Adhérent : <input type="email" name="email" id="email" placeholder="Email" disabled></label>
+                <label>Téléphone Adhérent : <input type="text" name="telephone" id="telephone" placeholder="Téléphone" disabled></label>
 
                 <label>
                     <input type="checkbox" name="anonyme" id="anonyme" value="1"> Rendre anonyme (pour les dons uniquement)
                 </label>
 
-                <!-- Champs pour donateur non-adhérent -->
                 <div id="nonAdherentFields" class="hidden">
                     <h3>Informations Donateur Non-Adhérent</h3>
-                    <label>Nom du Donateur : <input type="text" name="nom_donateur" id="nom_donateur"></label>
-                    <label>Prénom du Donateur : <input type="text" name="prenom_donateur" id="prenom_donateur"></label>
-                    <label>Email (facultatif) : <input type="email" name="email_donateur" id="email_donateur"></label>
-                    <label>Téléphone (facultatif) : <input type="text" name="telephone_donateur" id="telephone_donateur"></label>
+                    <label>Nom du Donateur : <input type="text" name="nom_donateur" id="nom_donateur" placeholder="Nom"></label>
+                    <label>Prénom du Donateur : <input type="text" name="prenom_donateur" id="prenom_donateur" placeholder="Prénom"></label>
+                    <label>Email (facultatif) : <input type="email" name="email_donateur" id="email_donateur" placeholder="ex: email@domaine.com"></label>
+                    <label>Téléphone (facultatif) : <input type="text" name="telephone_donateur" id="telephone_donateur" placeholder="ex: 0601020304"></label>
                 </div>
             </fieldset>
 
             <fieldset>
                 <legend>Détails de la Contribution</legend>
-                <label>Montant : <input type="number" step="0.01" name="montant" id="montant" required></label>
+                <label>Montant : <input type="number" step="0.01" name="montant" id="montant" required placeholder="Montant en €"></label>
                 <label>Type de paiement :
                     <select name="type_paiement" id="type_paiement" required>
                         <option value="">-- Choisir --</option>
@@ -76,16 +75,15 @@ $currentMonth = date('Y-m');
     </div>
     <footer>&copy; 2024 Mosquée Errahma</footer>
 
-    <!-- Modal ajout adhérent -->
     <div id="modalAddAdherent" class="modal hidden">
         <div class="modal-content">
             <span id="closeModal" class="close">&times;</span>
             <h2>Ajouter un nouvel adhérent</h2>
             <form id="newAdherentForm">
-                <label>Nom : <input type="text" name="nom" required></label>
-                <label>Prénom : <input type="text" name="prenom" required></label>
-                <label>Email (obligatoire) : <input type="email" name="email" required></label>
-                <label>Téléphone (obligatoire) : <input type="text" name="telephone" required></label>
+                <label>Nom : <input type="text" name="nom" required placeholder="Nom"></label>
+                <label>Prénom : <input type="text" name="prenom" required placeholder="Prénom"></label>
+                <label>Email (obligatoire) : <input type="email" name="email" required placeholder="email@exemple.com"></label>
+                <label>Téléphone (obligatoire) : <input type="text" name="telephone" required placeholder="ex: 0601020304"></label>
                 <button type="submit">Ajouter</button>
             </form>
             <div id="adherentError" class="error-message"></div>
@@ -108,18 +106,24 @@ $currentMonth = date('Y-m');
             const anonymeCheck = document.getElementById('anonyme');
             const typeContribution = document.getElementById('type_contribution');
             const nonAdherentFields = document.getElementById('nonAdherentFields');
+            const noAdherentMessage = document.getElementById('noAdherentMessage');
+            const infoMessage = document.getElementById('infoMessage');
 
             // Charger tous les adhérents
             fetch('fetch_member.php')
                 .then(res => res.json())
                 .then(data => {
-                    console.log("Adhérents récupérés:", data);
-                    data.forEach(adherent => {
-                        const option = document.createElement('option');
-                        option.value = adherent.id;
-                        option.textContent = adherent.nom + ' ' + adherent.prenom;
-                        adherentSelect.appendChild(option);
-                    });
+                    if (data.length === 0) {
+                        noAdherentMessage.style.display = 'block';
+                    } else {
+                        noAdherentMessage.style.display = 'none';
+                        data.forEach(adherent => {
+                            const option = document.createElement('option');
+                            option.value = adherent.id;
+                            option.textContent = adherent.nom + ' ' + adherent.prenom;
+                            adherentSelect.appendChild(option);
+                        });
+                    }
                 })
                 .catch(err => console.error(err));
 
@@ -181,7 +185,6 @@ $currentMonth = date('Y-m');
                 .then(r => r.json())
                 .then(resp => {
                     if (resp.success) {
-                        // Ajouter l'adhérent à la liste
                         const option = document.createElement('option');
                         option.value = resp.id;
                         option.textContent = resp.nom + ' ' + resp.prenom;
@@ -200,6 +203,9 @@ $currentMonth = date('Y-m');
                         modal.classList.add('hidden');
                         newAdherentForm.reset();
                         adherentError.textContent = '';
+                        noAdherentMessage.style.display = 'none';
+                        infoMessage.textContent = "Adhérent ajouté avec succès.";
+                        setTimeout(() => {infoMessage.textContent = "";}, 3000);
                         updateFormState();
                     } else {
                         adherentError.textContent = resp.message;

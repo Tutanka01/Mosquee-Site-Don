@@ -1,41 +1,53 @@
 <?php
 include 'db.php';
 
-// Récupération des contributions par type
+// Cotisations
 $query_cotisations = $db->query("
     SELECT 
         CASE 
-            WHEN A.anonyme = 1 THEN 'Anonyme'
-            ELSE A.nom || ' ' || A.prenom
+            WHEN C.id_adherent IS NOT NULL AND A.anonyme = 1 THEN 'Anonyme'
+            WHEN C.id_adherent IS NOT NULL THEN A.nom || ' ' || A.prenom
+            ELSE 'Inconnu' -- Au cas où une cotisation sans adhérent apparaît (ce qui ne devrait pas arriver)
         END AS nom_complet,
         C.montant,
         C.jour_paiement
     FROM Contributions C
-    JOIN Adherents A ON C.id_adherent = A.id
+    LEFT JOIN Adherents A ON C.id_adherent = A.id
     WHERE C.type_contribution = 'cotisation'
 ");
 $data_cotisations = $query_cotisations->fetchAll(PDO::FETCH_ASSOC);
 
+// Dons
 $query_dons = $db->query("
     SELECT 
         CASE 
-            WHEN A.anonyme = 1 THEN 'Anonyme'
-            ELSE A.nom || ' ' || A.prenom
+            WHEN C.anonyme = 1 THEN 'Anonyme'
+            WHEN C.id_adherent IS NOT NULL AND A.anonyme = 0 THEN A.nom || ' ' || A.prenom
+            WHEN C.id_adherent IS NOT NULL AND A.anonyme = 1 THEN 'Anonyme'
+            WHEN C.id_adherent IS NULL AND C.anonyme = 0 THEN 
+                CASE 
+                    WHEN C.nom_donateur IS NOT NULL THEN C.nom_donateur || ' ' || C.prenom_donateur 
+                    ELSE 'Donateur Non-Adhérent'
+                END
+            ELSE 'Inconnu'
         END AS nom_complet,
         C.montant,
         C.jour_paiement
     FROM Contributions C
-    JOIN Adherents A ON C.id_adherent = A.id
+    LEFT JOIN Adherents A ON C.id_adherent = A.id
     WHERE C.type_contribution = 'don'
 ");
 $data_dons = $query_dons->fetchAll(PDO::FETCH_ASSOC);
 
+// Contributions par mois
 $query_month = $db->query("SELECT strftime('%Y-%m', jour_paiement) AS mois, SUM(montant) AS total FROM Contributions GROUP BY mois");
 $data_month = $query_month->fetchAll(PDO::FETCH_ASSOC);
 
+// Répartition par type
 $query_type = $db->query("SELECT type_contribution, SUM(montant) AS total FROM Contributions GROUP BY type_contribution");
 $data_type = $query_type->fetchAll(PDO::FETCH_ASSOC);
 
+// Pagination
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $items_per_page = 10;
 $offset = ($page - 1) * $items_per_page;
@@ -43,21 +55,26 @@ $offset = ($page - 1) * $items_per_page;
 $query_paginated = $db->prepare("
     SELECT 
         CASE 
-            WHEN C.type_contribution = 'cotisation' THEN (A.nom || ' ' || A.prenom)
-            WHEN C.type_contribution = 'don' AND C.anonyme = 1 THEN 'Anonyme'
-            WHEN C.type_contribution = 'don' AND C.id_adherent IS NOT NULL THEN (A.nom || ' ' || A.prenom)
-            WHEN C.type_contribution = 'don' AND C.id_adherent IS NULL AND C.anonyme = 0 THEN (C.nom_donateur || ' ' || C.prenom_donateur)
+            WHEN C.anonyme = 1 THEN 'Anonyme'
+            WHEN C.id_adherent IS NOT NULL AND A.anonyme = 0 THEN A.nom || ' ' || A.prenom
+            WHEN C.id_adherent IS NOT NULL AND A.anonyme = 1 THEN 'Anonyme'
+            WHEN C.id_adherent IS NULL AND C.anonyme = 0 THEN 
+                CASE 
+                    WHEN C.nom_donateur IS NOT NULL THEN C.nom_donateur || ' ' || C.prenom_donateur
+                    ELSE 'Donateur Non-Adhérent'
+                END
+            ELSE 'Inconnu'
         END AS nom_complet,
         C.montant,
         C.jour_paiement,
         C.type_contribution
     FROM Contributions C
     LEFT JOIN Adherents A ON C.id_adherent = A.id
-    LIMIT 10
+    LIMIT :limit OFFSET :offset
 ");
 
-// $query_paginated->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
-// $query_paginated->bindValue(':offset', $offset, PDO::PARAM_INT);
+$query_paginated->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
+$query_paginated->bindValue(':offset', $offset, PDO::PARAM_INT);
 $query_paginated->execute();
 $data_paginated = $query_paginated->fetchAll(PDO::FETCH_ASSOC);
 
