@@ -6,7 +6,11 @@ $prenom = $_POST['prenom'] ?? '';
 $email = $_POST['email'] ?? '';
 $telephone = $_POST['telephone'] ?? '';
 
-// Vérification email unique
+if ($nom === '' || $prenom === '' || $email === '' || $telephone === '') {
+    echo json_encode(['success' => false, 'message' => 'Veuillez remplir tous les champs (nom, prénom, email, téléphone).']);
+    exit;
+}
+
 $check = $db->prepare("SELECT COUNT(*) FROM Adherents WHERE email = ?");
 $check->execute([$email]);
 if ($check->fetchColumn() > 0) {

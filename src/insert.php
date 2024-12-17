@@ -7,11 +7,15 @@ $type_paiement = $_POST['type_paiement'] ?? '';
 $mois = $_POST['mois'] ?? null;
 $anonyme = isset($_POST['anonyme']) ? 1 : 0;
 
-// Validation serveur
+$id_adherent = !empty($_POST['id_adherent']) ? (int)$_POST['id_adherent'] : null;
+$nom_donateur = $_POST['nom_donateur'] ?? null;
+$prenom_donateur = $_POST['prenom_donateur'] ?? null;
+$email_donateur = $_POST['email_donateur'] ?? null;
+$telephone_donateur = $_POST['telephone_donateur'] ?? null;
+
 if ($type_paiement === '') {
     die("Erreur : le type de paiement est obligatoire.");
 }
-
 if ($montant <= 0) {
     die("Erreur : le montant doit être supérieur à 0.");
 }
@@ -19,33 +23,35 @@ if ($montant <= 0) {
 $jour_paiement = date('Y-m-d');
 $heure_paiement = date('H:i:s');
 
-$id_adherent = null;
-
 if ($type_contribution === 'cotisation') {
-    // Cotisation : pas d’anonyme, adhérent obligatoire
     if ($anonyme == 1) {
         die("Erreur : une cotisation ne peut pas être anonyme.");
     }
-    if (empty($_POST['id_adherent'])) {
+    if (!$id_adherent) {
         die("Erreur : aucun adhérent sélectionné pour la cotisation.");
     }
-    $id_adherent = (int)$_POST['id_adherent'];
+    $nom_donateur = $prenom_donateur = $email_donateur = $telephone_donateur = null;
 } else {
     // don
     if ($anonyme == 1) {
-        // Don anonyme
         $id_adherent = null;
+        $nom_donateur = $prenom_donateur = $email_donateur = $telephone_donateur = null;
     } else {
-        // Don non anonyme => adhérent obligatoire
-        if (empty($_POST['id_adherent'])) {
-            die("Erreur : veuillez sélectionner ou ajouter un adhérent pour un don non anonyme.");
+        if ($id_adherent) {
+            // Don adhérent
+            $nom_donateur = $prenom_donateur = $email_donateur = $telephone_donateur = null;
+        } else {
+            // Don non adhérent
+            if (empty($nom_donateur) || empty($prenom_donateur)) {
+                die("Erreur : nom et prénom du donateur non-adhérent sont obligatoires.");
+            }
         }
-        $id_adherent = (int)$_POST['id_adherent'];
     }
 }
 
-$stmt = $db->prepare("INSERT INTO Contributions (id_adherent, type_contribution, montant, type_paiement, mois, jour_paiement, heure_paiement, anonyme) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-$stmt->execute([$id_adherent, $type_contribution, $montant, $type_paiement, $mois, $jour_paiement, $heure_paiement, $anonyme]);
+$stmt = $db->prepare("INSERT INTO Contributions (id_adherent, type_contribution, montant, type_paiement, mois, jour_paiement, heure_paiement, anonyme, nom_donateur, prenom_donateur, email_donateur, telephone_donateur) 
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+$stmt->execute([$id_adherent, $type_contribution, $montant, $type_paiement, $mois, $jour_paiement, $heure_paiement, $anonyme, $nom_donateur, $prenom_donateur, $email_donateur, $telephone_donateur]);
 
 echo "Contribution enregistrée avec succès.";
 ?>

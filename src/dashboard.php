@@ -43,19 +43,21 @@ $offset = ($page - 1) * $items_per_page;
 $query_paginated = $db->prepare("
     SELECT 
         CASE 
-            WHEN A.anonyme = 1 THEN 'Anonyme'
-            ELSE A.nom || ' ' || A.prenom
+            WHEN C.type_contribution = 'cotisation' THEN (A.nom || ' ' || A.prenom)
+            WHEN C.type_contribution = 'don' AND C.anonyme = 1 THEN 'Anonyme'
+            WHEN C.type_contribution = 'don' AND C.id_adherent IS NOT NULL THEN (A.nom || ' ' || A.prenom)
+            WHEN C.type_contribution = 'don' AND C.id_adherent IS NULL AND C.anonyme = 0 THEN (C.nom_donateur || ' ' || C.prenom_donateur)
         END AS nom_complet,
         C.montant,
         C.jour_paiement,
         C.type_contribution
     FROM Contributions C
-    JOIN Adherents A ON C.id_adherent = A.id
-    LIMIT :limit OFFSET :offset
+    LEFT JOIN Adherents A ON C.id_adherent = A.id
+    LIMIT 10
 ");
 
-$query_paginated->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
-$query_paginated->bindValue(':offset', $offset, PDO::PARAM_INT);
+// $query_paginated->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
+// $query_paginated->bindValue(':offset', $offset, PDO::PARAM_INT);
 $query_paginated->execute();
 $data_paginated = $query_paginated->fetchAll(PDO::FETCH_ASSOC);
 
