@@ -1,5 +1,6 @@
 <?php
 include 'db.php';
+
 $term = $_GET['term'] ?? '';
 $term = '%'.$term.'%';
 $stmt = $db->prepare("SELECT id, nom, prenom, email FROM Adherents WHERE nom LIKE ? OR prenom LIKE ? OR email LIKE ? ORDER BY nom, prenom");

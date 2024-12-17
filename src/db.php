@@ -1,10 +1,5 @@
 <?php
-// db.php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-$dsn = 'sqlite:sqlite.sqlite';
+$dsn = 'sqlite:' . __DIR__ . '/sqlite.sqlite';
 try {
     $db = new PDO($dsn);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

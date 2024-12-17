@@ -21,6 +21,7 @@ $currentMonth = date('Y-m');
                     <select name="type_contribution" id="type_contribution">
                         <option value="cotisation">Cotisation</option>
                         <option value="don">Don</option>
+                        <option value="projet">Projet</option>
                     </select>
                 </label>
             </fieldset>
@@ -42,11 +43,11 @@ $currentMonth = date('Y-m');
                 <label>Téléphone Adhérent : <input type="text" name="telephone" id="telephone" placeholder="Téléphone" disabled></label>
 
                 <label>
-                    <input type="checkbox" name="anonyme" id="anonyme" value="1"> Rendre anonyme (pour les dons uniquement)
+                    <input type="checkbox" name="anonyme" id="anonyme" value="1"> Rendre anonyme (pour dons/projets non adhérent)
                 </label>
 
                 <div id="nonAdherentFields" class="hidden">
-                    <h3>Informations Donateur Non-Adhérent</h3>
+                    <h3>Informations Donateur/Contributeur Non-Adhérent</h3>
                     <label>Nom du Donateur : <input type="text" name="nom_donateur" id="nom_donateur" placeholder="Nom"></label>
                     <label>Prénom du Donateur : <input type="text" name="prenom_donateur" id="prenom_donateur" placeholder="Prénom"></label>
                     <label>Email (facultatif) : <input type="email" name="email_donateur" id="email_donateur" placeholder="ex: email@domaine.com"></label>
@@ -65,7 +66,7 @@ $currentMonth = date('Y-m');
                         <option value="virement">Virement</option>
                     </select>
                 </label>
-                <label>Mois (pour cotisation) : 
+                <label>Mois (pour cotisation, indicatif) : 
                     <input type="month" name="mois" value="<?= $currentMonth; ?>">
                 </label>
             </fieldset>
@@ -84,6 +85,9 @@ $currentMonth = date('Y-m');
                 <label>Prénom : <input type="text" name="prenom" required placeholder="Prénom"></label>
                 <label>Email (obligatoire) : <input type="email" name="email" required placeholder="email@exemple.com"></label>
                 <label>Téléphone (obligatoire) : <input type="text" name="telephone" required placeholder="ex: 0601020304"></label>
+                <label>Montant mensuel (cotisation) : <input type="number" step="0.01" name="monthly_fee" placeholder="ex: 15.00"></label>
+                <label>Date début adhésion : <input type="date" name="start_date"></label>
+                <label>Date fin adhésion (facultatif) : <input type="date" name="end_date"></label>
                 <button type="submit">Ajouter</button>
             </form>
             <div id="adherentError" class="error-message"></div>
@@ -275,19 +279,18 @@ $currentMonth = date('Y-m');
                         e.preventDefault();
                         return;
                     }
-                } else {
-                    // don
+                } else if (type === 'don' || type === 'projet') {
                     if (isAnonyme) {
-                        // ok
+                        // ok pour don/projet anonyme
                     } else {
                         if (adherentID) {
-                            // Don adhérent ok
+                            // Don/Projet adhérent ok
                         } else {
-                            // Don non adhérent
+                            // Don/Projet non adhérent
                             const nomDon = document.getElementById('nom_donateur').value.trim();
                             const prenomDon = document.getElementById('prenom_donateur').value.trim();
                             if (!nomDon || !prenomDon) {
-                                alert("Pour un don non adhérent, veuillez renseigner le nom et le prénom.");
+                                alert("Pour un don/projet non adhérent, veuillez renseigner le nom et le prénom.");
                                 e.preventDefault();
                                 return;
                             }
