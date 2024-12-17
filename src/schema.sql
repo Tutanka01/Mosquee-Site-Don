@@ -1,24 +1,25 @@
--- Table des adhérents (inchangée)
-CREATE TABLE Adherents (
+-- Table des adhérents
+CREATE TABLE IF NOT EXISTS Adherents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nom TEXT,
     prenom TEXT,
     email TEXT UNIQUE,
     telephone TEXT,
     date_inscription DATE DEFAULT (CURRENT_DATE),
-    anonyme BOOLEAN DEFAULT FALSE, -- Pour les dons anonymes
-    donateur_temporaire BOOLEAN DEFAULT FALSE -- Pour les utilisateurs ponctuels
+    anonyme BOOLEAN DEFAULT 0,
+    donateur_temporaire BOOLEAN DEFAULT 0
 );
 
--- Table des contributions (cotisations et dons)
-CREATE TABLE Contributions (
+-- Table des contributions
+CREATE TABLE IF NOT EXISTS Contributions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_adherent INT NULL, -- Null pour les dons anonymes
+    id_adherent INT NULL,
     type_contribution TEXT NOT NULL CHECK (type_contribution IN ('cotisation', 'don')),
     montant DECIMAL(10, 2) NOT NULL,
     type_paiement TEXT NOT NULL CHECK (type_paiement IN ('espèces', 'carte', 'virement')),
-    mois TEXT,                     -- Pour les cotisations
-    jour_paiement DATE DEFAULT (CURRENT_DATE), -- Pour les dons/cotisations
-    heure_paiement TIME,           -- Heure pour les dons
+    mois TEXT,
+    jour_paiement DATE DEFAULT (CURRENT_DATE),
+    heure_paiement TIME,
+    anonyme BOOLEAN DEFAULT 0, -- Ajout de cette colonne
     FOREIGN KEY (id_adherent) REFERENCES Adherents(id) ON DELETE CASCADE
 );

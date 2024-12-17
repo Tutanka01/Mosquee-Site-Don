@@ -1,5 +1,5 @@
 <?php
-$dsn = 'sqlite:sqlite.sqlite'; // Fichier de base SQLite
+$dsn = 'sqlite:sqlite.sqlite'; // Assurez-vous du chemin correct vers votre base.
 try {
     $db = new PDO($dsn);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

@@ -2,7 +2,6 @@
 include 'db.php';
 
 // Récupération des contributions par type
-// Récupération des cotisations avec noms gérés correctement
 $query_cotisations = $db->query("
     SELECT 
         CASE 
@@ -17,7 +16,6 @@ $query_cotisations = $db->query("
 ");
 $data_cotisations = $query_cotisations->fetchAll(PDO::FETCH_ASSOC);
 
-// Récupération des dons avec noms gérés correctement
 $query_dons = $db->query("
     SELECT 
         CASE 
@@ -32,15 +30,12 @@ $query_dons = $db->query("
 ");
 $data_dons = $query_dons->fetchAll(PDO::FETCH_ASSOC);
 
-// Contributions par mois
 $query_month = $db->query("SELECT strftime('%Y-%m', jour_paiement) AS mois, SUM(montant) AS total FROM Contributions GROUP BY mois");
 $data_month = $query_month->fetchAll(PDO::FETCH_ASSOC);
 
-// Répartition par type
 $query_type = $db->query("SELECT type_contribution, SUM(montant) AS total FROM Contributions GROUP BY type_contribution");
 $data_type = $query_type->fetchAll(PDO::FETCH_ASSOC);
 
-// Pagination des contributions
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $items_per_page = 10;
 $offset = ($page - 1) * $items_per_page;
@@ -64,11 +59,9 @@ $query_paginated->bindValue(':offset', $offset, PDO::PARAM_INT);
 $query_paginated->execute();
 $data_paginated = $query_paginated->fetchAll(PDO::FETCH_ASSOC);
 
-// Total des pages
 $total = $db->query("SELECT COUNT(*) as count FROM Contributions")->fetch(PDO::FETCH_ASSOC)['count'];
 $total_pages = ceil($total / $items_per_page);
 ?>
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -81,7 +74,6 @@ $total_pages = ceil($total / $items_per_page);
     <div class="container">
         <h1>Dashboard Administrateur</h1>
 
-        <!-- Onglets -->
         <div class="tabs">
             <button onclick="showTab('stats')">Statistiques Globales</button>
             <button onclick="showTab('cotisations')">Cotisations</button>
@@ -89,14 +81,12 @@ $total_pages = ceil($total / $items_per_page);
             <button onclick="showTab('list')">Liste des Contributions</button>
         </div>
 
-        <!-- Statistiques globales -->
         <div id="stats" class="tab-content">
             <h2>Statistiques Globales</h2>
             <canvas id="contributionsMois"></canvas>
             <canvas id="repartitionType"></canvas>
         </div>
 
-        <!-- Cotisations -->
         <div id="cotisations" class="tab-content" style="display:none;">
             <h2>Liste des Cotisations</h2>
             <table>
@@ -115,8 +105,6 @@ $total_pages = ceil($total / $items_per_page);
             </table>
         </div>
 
-
-        <!-- Dons -->
         <div id="dons" class="tab-content" style="display:none;">
             <h2>Liste des Dons</h2>
             <table>
@@ -135,8 +123,6 @@ $total_pages = ceil($total / $items_per_page);
             </table>
         </div>
 
-
-        <!-- Liste des contributions -->
         <div id="list" class="tab-content" style="display:none;">
             <h2>Liste des Contributions</h2>
             <table>
@@ -153,7 +139,6 @@ $total_pages = ceil($total / $items_per_page);
                 <?php endforeach; ?>
             </table>
 
-            <!-- Pagination -->
             <div>
                 <?php for ($i = 1; $i <= $total_pages; $i++): ?>
                     <a href="?page=<?= $i ?>" <?= $i == $page ? 'class="active"' : '' ?>><?= $i ?></a>
@@ -163,19 +148,17 @@ $total_pages = ceil($total / $items_per_page);
     </div>
 
     <script>
-        // Gestion des onglets
         function showTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
             document.getElementById(tab).style.display = 'block';
         }
 
-        // Graphiques
         const ctxMois = document.getElementById('contributionsMois').getContext('2d');
         new Chart(ctxMois, {
             type: 'line',
             data: {
                 labels: <?= json_encode(array_column($data_month, 'mois')) ?>,
-                datasets: [{ 
+                datasets: [{
                     label: 'Montant Collecté (€)',
                     data: <?= json_encode(array_column($data_month, 'total')) ?>,
                     borderColor: 'blue',
