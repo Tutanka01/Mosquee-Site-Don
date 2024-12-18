@@ -189,6 +189,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         <button onclick="showTab('list')">Liste des Contributions</button>
         <button onclick="showTab('adherents')">Recherche Adhérent</button>
         <button onclick="showTab('cotisations_mensuelles')">Cotisations Mensuelles</button>
+        <button onclick="showTab('membres')">Membres</button>
     </div>
 
     <!-- Statistiques Globales -->
@@ -349,39 +350,122 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
                         if ($end && $dateM > $end) $applicable = false;
 
                         if (!$applicable) {
-                            echo "<td style='background-color: #ccc'>N/A</td>";
+                            echo "<td style='background-color:#ccc'>N/A</td>";
                         } else {
-                            $paid_amount = $mois_status[$m] ?? 0.0;
-                            if ($monthly_fee > 0) {
-                                if ($paid_amount == 0) {
-                                    echo "<td style='background-color: #ffaaaa'>Non Payé</td>";
-                                } elseif ($paid_amount < $monthly_fee) {
-                                    $restant = $monthly_fee - $paid_amount;
-                                    echo "<td style='background-color: #ffffaa'>Partiel ({$paid_amount}/{$monthly_fee})</td>";
-                                } else {
-                                    // paid_amount == monthly_fee
-                                    echo "<td style='background-color: #aaffaa'>Payé</td>";
-                                }
+                            $paid_amount = $mois_status[$m] ?? 0;
+                            $monthly_fee = (float)$ad['monthly_fee'];
+                            if ($monthly_fee <= 0) {
+                                // Pas de cotisation mensuelle
+                                echo "<td style='background-color:#ccc'>N/A</td>";
                             } else {
-                                // Pas de monthly_fee => Pas de cotisation à payer
-                                echo "<td style='background-color: #ccc'>N/A</td>";
+                                $reste = $monthly_fee - $paid_amount;
+                                if ($reste == 0) {
+                                    // Mois entièrement payé
+                                    echo "<td style='background-color:#aaffaa'>0€</td>";
+                                } else {
+                                    // Mois pas entièrement réglé, afficher le montant manquant en négatif
+                                    // Par exemple, s'il manque 5€, afficher "-5€"
+                                    echo "<td style='background-color:#ffaaaa'>-{$reste}€</td>";
+                                }
                             }
                         }
+                        
                     endfor; ?>
                 </tr>
             <?php endforeach; ?>
         </table>
     </div>
+
+    <div id="membres" class="tab-content" style="display:none;">
+        <h2>Gestion des Membres</h2>
+        <div style="margin-bottom:10px;">
+            <input type="text" id="searchMembre" placeholder="Rechercher un membre par nom/email..." style="width:300px;margin-right:10px;">
+            <button id="addMembreBtn">Ajouter un adhérent</button>
+        </div>
+        <table id="membresTable">
+            <thead>
+                <tr>
+                    <th>Nom</th>
+                    <th>Email</th>
+                    <th>Téléphone</th>
+                    <th>Monthly Fee</th>
+                    <th>Début Adhésion</th>
+                    <th>Fin Adhésion</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rempli via JS -->
+            </tbody>
+        </table>
+    </div>
+    
+
+</div>
+<!-- Modale Ajouter/Modifier Adhérent -->
+<div id="membreModal" class="modal hidden">
+    <div class="modal-content">
+        <span id="closeMembreModal" class="close">&times;</span>
+        <h2 id="membreModalTitle">Ajouter un adhérent</h2>
+        <form id="membreForm">
+            <input type="hidden" name="id" id="membre_id">
+            <label>Nom : <input type="text" name="nom" id="membre_nom" required></label>
+            <label>Prénom : <input type="text" name="prenom" id="membre_prenom" required></label>
+            <label>Email : <input type="email" name="email" id="membre_email" required></label>
+            <label>Téléphone : <input type="text" name="telephone" id="membre_telephone" required></label>
+            <label>Montant Mensuel (monthly_fee) : <input type="number" step="0.01" name="monthly_fee" id="membre_monthly_fee"></label>
+            <label>Date début adhésion : <input type="date" name="start_date" id="membre_start_date"></label>
+            <label>Date fin adhésion : <input type="date" name="end_date" id="membre_end_date"></label>
+            <button type="submit" id="membreSaveBtn">Enregistrer</button>
+        </form>
+        <div id="membreError" class="error-message"></div>
+    </div>
+</div>
+
+<!-- Modale Suppression -->
+<div id="deleteModal" class="modal hidden">
+    <div class="modal-content">
+        <span id="closeDeleteModal" class="close">&times;</span>
+        <h2>Supprimer Adhérent</h2>
+        <p>Êtes-vous sûr de vouloir supprimer cet adhérent ?</p>
+        <input type="hidden" id="delete_id">
+        <button id="confirmDeleteBtn">Supprimer</button>
+        <button id="cancelDeleteBtn">Annuler</button>
+        <div id="deleteError" class="error-message"></div>
+    </div>
 </div>
 
 <script>
     function showTab(tab) {
-        var tabs = document.querySelectorAll('.tab-content');
-        for (var i=0; i<tabs.length; i++){
-            tabs[i].style.display = 'none';
-        }
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
         document.getElementById(tab).style.display = 'block';
     }
+
+    const searchMembre = document.getElementById('searchMembre');
+    const membresTableBody = document.querySelector('#membresTable tbody');
+    const addMembreBtn = document.getElementById('addMembreBtn');
+    const membreModal = document.getElementById('membreModal');
+    const closeMembreModal = document.getElementById('closeMembreModal');
+    const membreForm = document.getElementById('membreForm');
+    const membreError = document.getElementById('membreError');
+    const membreModalTitle = document.getElementById('membreModalTitle');
+    const membre_id = document.getElementById('membre_id');
+    const membre_nom = document.getElementById('membre_nom');
+    const membre_prenom = document.getElementById('membre_prenom');
+    const membre_email = document.getElementById('membre_email');
+    const membre_telephone = document.getElementById('membre_telephone');
+    const membre_monthly_fee = document.getElementById('membre_monthly_fee');
+    const membre_start_date = document.getElementById('membre_start_date');
+    const membre_end_date = document.getElementById('membre_end_date');
+
+    const deleteModal = document.getElementById('deleteModal');
+    const closeDeleteModal = document.getElementById('closeDeleteModal');
+    const delete_id = document.getElementById('delete_id');
+    const deleteError = document.getElementById('deleteError');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
+
 
     // Graphiques
     const ctxMois = document.getElementById('contributionsMois').getContext('2d');
@@ -454,9 +538,148 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
                 }
             });
     });
+    // MEMBRES-------------------
+    function fetchAdherents(term='') {
+        fetch('fetch_adherents.php?term='+encodeURIComponent(term))
+            .then(r=>r.json())
+            .then(data=>{
+                membresTableBody.innerHTML = '';
+                data.forEach(ad => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${ad.nom} ${ad.prenom}</td>
+                        <td>${ad.email}</td>
+                        <td>${ad.telephone}</td>
+                        <td>${ad.monthly_fee ?? ''}</td>
+                        <td>${ad.start_date ?? ''}</td>
+                        <td>${ad.end_date ?? ''}</td>
+                        <td>
+                            <button class="editBtn" data-id="${ad.id}">Modifier</button>
+                            <button class="deleteBtn" data-id="${ad.id}">Supprimer</button>
+                        </td>
+                    `;
+                    membresTableBody.appendChild(tr);
+                });
+
+                document.querySelectorAll('.editBtn').forEach(btn=>{
+                    btn.addEventListener('click', ()=>{
+                        const id = btn.getAttribute('data-id');
+                        editAdherent(id);
+                    });
+                });
+
+                document.querySelectorAll('.deleteBtn').forEach(btn=>{
+                    btn.addEventListener('click', ()=>{
+                        const id = btn.getAttribute('data-id');
+                        delete_id.value = id;
+                        deleteError.textContent = '';
+                        deleteModal.classList.remove('hidden');
+                    });
+                });
+            })
+            .catch(err=>console.error(err));
+    }
+
+    function editAdherent(id) {
+        // Récupérer les infos de l'adhérent, on peut réutiliser fetch_adherents.php?term et filtrer côté client
+        // Ou créer un endpoint fetch_one_adherent.php
+        // Pour simplifier, on va filtrer côté client après avoir fetch la liste, ou faire un endpoint rapide.
+
+        fetch('fetch_adherents.php?term=')
+            .then(r=>r.json())
+            .then(data=>{
+                const adh = data.find(a=>a.id==id);
+                if(!adh) return;
+                membre_id.value = adh.id;
+                membre_nom.value = adh.nom;
+                membre_prenom.value = adh.prenom;
+                membre_email.value = adh.email;
+                membre_telephone.value = adh.telephone;
+                membre_monthly_fee.value = adh.monthly_fee ?? '';
+                membre_start_date.value = adh.start_date ?? '';
+                membre_end_date.value = adh.end_date ?? '';
+                membreModalTitle.textContent = "Modifier l'adhérent";
+                membreError.textContent = '';
+                membreModal.classList.remove('hidden');
+            });
+    }
+
+    searchMembre.addEventListener('input', ()=>{
+        fetchAdherents(searchMembre.value);
+    });
+
+    addMembreBtn.addEventListener('click', ()=>{
+        membre_id.value='';
+        membre_nom.value='';
+        membre_prenom.value='';
+        membre_email.value='';
+        membre_telephone.value='';
+        membre_monthly_fee.value='';
+        membre_start_date.value='';
+        membre_end_date.value='';
+        membreModalTitle.textContent = "Ajouter un adhérent";
+        membreError.textContent = '';
+        membreModal.classList.remove('hidden');
+    });
+
+    closeMembreModal.addEventListener('click', ()=>{
+        membreModal.classList.add('hidden');
+    });
+
+    membreForm.addEventListener('submit', (e)=>{
+        e.preventDefault();
+        const formData = new FormData(membreForm);
+        let url = 'insert_adherent.php';
+        if(membre_id.value) {
+            // Si id existe => update
+            url = 'update_adherent.php';
+        }
+        fetch(url, {
+            method:'POST',
+            body:formData
+        })
+        .then(r=>r.json())
+        .then(resp=>{
+            if(resp.success) {
+                membreModal.classList.add('hidden');
+                fetchAdherents(searchMembre.value);
+            } else {
+                membreError.textContent = resp.message;
+            }
+        })
+        .catch(err=>console.error(err));
+    });
+
+    closeDeleteModal.addEventListener('click', ()=>{
+        deleteModal.classList.add('hidden');
+    });
+
+    cancelDeleteBtn.addEventListener('click', ()=>{
+        deleteModal.classList.add('hidden');
+    });
+
+    confirmDeleteBtn.addEventListener('click', ()=>{
+        const formData = new FormData();
+        formData.append('id', delete_id.value);
+        fetch('delete_adherent.php', {
+            method:'POST',
+            body:formData
+        })
+        .then(r=>r.json())
+        .then(resp=>{
+            if(resp.success) {
+                deleteModal.classList.add('hidden');
+                fetchAdherents(searchMembre.value);
+            } else {
+                deleteError.textContent = resp.message;
+            }
+        })
+        .catch(err=>console.error(err));
+    });
 
     // Onglet par défaut
     showTab('stats');
+    fetchAdherents();
 </script>
 </body>
 </html>
