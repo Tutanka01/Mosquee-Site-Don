@@ -28,17 +28,17 @@ try {
     $id = $db->lastInsertId();
 
     // Générer les mois de cotisation pour l'année en cours si monthly_fee > 0
-    if ($monthly_fee > 0 && $start_date) {
-        $start = new DateTime($start_date);
-        $y = (int)$start->format('Y');
+    if ($monthly_fee > 0) {
+        // $start = new DateTime($start_date);
+        // $y = (int)$start->format('Y');
         // On se limite à l'année en cours dans cet exemple, on pourrait aller plus loin
-        for ($m=1;$m<=12;$m++){
-            $current = new DateTime("$y-$m-01");
-            if ($current >= $start && (!$end_date || $current <= new DateTime($end_date))) {
-                $ins = $db->prepare("INSERT INTO Cotisation_Months (id_adherent, year, month, paid_amount) VALUES (?, ?, ?, 0)");
-                $ins->execute([$id, $y, $m]);
-            }
-        }
+        // for ($m=1;$m<=12;$m++){
+        //     $current = new DateTime("$y-$m-01");
+        //     if ($current >= $start && (!$end_date || $current <= new DateTime($end_date))) {
+        //         $ins = $db->prepare("INSERT INTO Cotisation_Months (id_adherent, year, month, paid_amount) VALUES (?, ?, ?, 0)");
+        //         $ins->execute([$id, $y, $m]);
+        //     }
+        // }
     }
 
     echo json_encode(['success' => true, 'id' => $id, 'nom' => $nom, 'prenom' => $prenom, 'email' => $email, 'telephone' => $telephone]);

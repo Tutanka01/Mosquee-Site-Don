@@ -1,9 +1,11 @@
 <?php
+// File: /src/dashboard.php
 include 'db.php';
 
+// Récupération de l'année en cours pour les stats
 $currentYear = date('Y');
 
-// Requêtes pour les listes
+// Récupération des cotisations
 $query_cotisations = $db->query("
     SELECT 
         CASE 
@@ -19,6 +21,7 @@ $query_cotisations = $db->query("
 ");
 $data_cotisations = $query_cotisations->fetchAll(PDO::FETCH_ASSOC);
 
+// Récupération des dons
 $query_dons = $db->query("
     SELECT 
         CASE 
@@ -40,7 +43,7 @@ $query_dons = $db->query("
 ");
 $data_dons = $query_dons->fetchAll(PDO::FETCH_ASSOC);
 
-// Projets
+// Récupération des projets
 $query_projets = $db->query("
     SELECT 
         CASE 
@@ -63,26 +66,42 @@ $query_projets = $db->query("
 $data_projets = $query_projets->fetchAll(PDO::FETCH_ASSOC);
 
 // Pour les graphiques et stats globales
-$query_month = $db->query("SELECT strftime('%Y-%m', jour_paiement) AS mois, SUM(montant) AS total FROM Contributions GROUP BY mois");
+$query_month = $db->query("
+    SELECT strftime('%Y-%m', jour_paiement) AS mois, SUM(montant) AS total 
+    FROM Contributions 
+    GROUP BY mois
+");
 $data_month = $query_month->fetchAll(PDO::FETCH_ASSOC);
 
-$query_type = $db->query("SELECT type_contribution, SUM(montant) AS total FROM Contributions GROUP BY type_contribution");
+$query_type = $db->query("
+    SELECT type_contribution, SUM(montant) AS total 
+    FROM Contributions 
+    GROUP BY type_contribution
+");
 $data_type = $query_type->fetchAll(PDO::FETCH_ASSOC);
 
 // Stats supplémentaires
-$stmt_total_year = $db->prepare("SELECT SUM(montant) as total_year FROM Contributions WHERE strftime('%Y', jour_paiement) = ?");
+$stmt_total_year = $db->prepare("
+    SELECT SUM(montant) AS total_year 
+    FROM Contributions 
+    WHERE strftime('%Y', jour_paiement) = ?
+");
 $stmt_total_year->execute([$currentYear]);
 $total_year = (float)$stmt_total_year->fetch(PDO::FETCH_ASSOC)['total_year'];
 
-$stmt_month_avg = $db->prepare("SELECT AVG(mensuel) as avg_month FROM (
-    SELECT strftime('%Y-%m', jour_paiement) as mois, SUM(montant) as mensuel
-    FROM Contributions
-    WHERE strftime('%Y', jour_paiement) = ?
-    GROUP BY mois
-)");
+$stmt_month_avg = $db->prepare("
+    SELECT AVG(mensuel) AS avg_month 
+    FROM (
+        SELECT strftime('%Y-%m', jour_paiement) as mois, SUM(montant) as mensuel
+        FROM Contributions
+        WHERE strftime('%Y', jour_paiement) = ?
+        GROUP BY mois
+    )
+");
 $stmt_month_avg->execute([$currentYear]);
 $avg_month = (float)$stmt_month_avg->fetch(PDO::FETCH_ASSOC)['avg_month'];
 
+// Top donateurs
 $stmt_top_donors = $db->prepare("
     SELECT
         CASE 
@@ -90,10 +109,13 @@ $stmt_top_donors = $db->prepare("
             WHEN C.id_adherent IS NOT NULL AND A.anonyme = 0 THEN A.nom || ' ' || A.prenom
             WHEN C.id_adherent IS NOT NULL AND A.anonyme = 1 THEN 'Anonyme'
             WHEN C.id_adherent IS NULL AND C.anonyme = 0 THEN 
-                CASE WHEN C.nom_donateur IS NOT NULL THEN C.nom_donateur || ' ' || C.prenom_donateur ELSE 'Donateur Non-Adhérent' END
+                CASE 
+                    WHEN C.nom_donateur IS NOT NULL THEN C.nom_donateur || ' ' || C.prenom_donateur
+                    ELSE 'Donateur Non-Adhérent'
+                END
             ELSE 'Inconnu'
         END AS nom_complet,
-        SUM(montant) as total_donne
+        SUM(montant) AS total_donne
     FROM Contributions C
     LEFT JOIN Adherents A ON C.id_adherent = A.id
     WHERE strftime('%Y', jour_paiement) = ?
@@ -104,9 +126,19 @@ $stmt_top_donors = $db->prepare("
 $stmt_top_donors->execute([$currentYear]);
 $top_donors = $stmt_top_donors->fetchAll(PDO::FETCH_ASSOC);
 
-$count_adherents = (int)$db->query("SELECT COUNT(*) FROM Adherents WHERE anonyme = 0")->fetchColumn();
+// Nombre total d'adhérents
+$count_adherents = (int)$db->query("
+    SELECT COUNT(*) 
+    FROM Adherents 
+    WHERE anonyme = 0
+")->fetchColumn();
 
-$query_type_count = $db->query("SELECT type_contribution, COUNT(*) as count_type FROM Contributions GROUP BY type_contribution");
+// Nombre de chaque type
+$query_type_count = $db->query("
+    SELECT type_contribution, COUNT(*) AS count_type 
+    FROM Contributions 
+    GROUP BY type_contribution
+");
 $type_counts = $query_type_count->fetchAll(PDO::FETCH_ASSOC);
 
 $cot_count = 0;
@@ -118,6 +150,7 @@ foreach ($type_counts as $tc) {
     if ($tc['type_contribution'] === 'projet') $projet_count = $tc['count_type'];
 }
 
+// Ratio dons/cotisations (montant)
 $stmt_ratio = $db->prepare("
 SELECT 
     (SELECT SUM(montant) FROM Contributions WHERE type_contribution='don' AND strftime('%Y', jour_paiement)=?) as total_don,
@@ -127,9 +160,11 @@ $stmt_ratio->execute([$currentYear, $currentYear]);
 $ratio_data = $stmt_ratio->fetch(PDO::FETCH_ASSOC);
 $total_don_year = (float)$ratio_data['total_don'];
 $total_cot_year = (float)$ratio_data['total_cot'];
-$ratio_don_cot = $total_cot_year > 0 ? round(($total_don_year / $total_cot_year)*100, 2) : 0;
+$ratio_don_cot = ($total_cot_year > 0) 
+    ? round(($total_don_year / $total_cot_year)*100, 2) 
+    : 0;
 
-// Pagination pour la liste des contributions
+// Pagination sur la liste globale des contributions
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $items_per_page = 10;
 $offset = ($page - 1) * $items_per_page;
@@ -155,7 +190,6 @@ $query_paginated = $db->prepare("
     ORDER BY C.jour_paiement DESC
     LIMIT :limit OFFSET :offset
 ");
-
 $query_paginated->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
 $query_paginated->bindValue(':offset', $offset, PDO::PARAM_INT);
 $query_paginated->execute();
@@ -164,18 +198,24 @@ $data_paginated = $query_paginated->fetchAll(PDO::FETCH_ASSOC);
 $total = $db->query("SELECT COUNT(*) as count FROM Contributions")->fetch(PDO::FETCH_ASSOC)['count'];
 $total_pages = ceil($total / $items_per_page);
 
-// Cotisations Mensuelles
+// Cotisations Mensuelles (pour l'affichage du tableau)
 $year = $currentYear;
-$adherents = $db->query("SELECT id, nom, prenom, monthly_fee, start_date, end_date FROM Adherents ORDER BY nom, prenom")->fetchAll(PDO::FETCH_ASSOC);
-$mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept","Octo","Nove","Dece"];
+// Récupération de tous les adhérents (non anonymes)
+$adherents = $db->query("
+    SELECT id, nom, prenom, monthly_fee, start_date, end_date 
+    FROM Adherents 
+    ORDER BY nom, prenom
+")->fetchAll(PDO::FETCH_ASSOC);
 
+$mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept","Octo","Nove","Dece"];
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard Administrateur - Amélioré</title>
+    <title>Dashboard Administrateur</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Chart.js pour les graphiques -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -192,13 +232,17 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         <button onclick="showTab('membres')">Membres</button>
     </div>
 
-    <!-- Statistiques Globales -->
+    <!-- Onglet : Statistiques Globales -->
     <div id="stats" class="tab-content">
         <h2>Statistiques Globales - Année <?= htmlspecialchars($currentYear) ?></h2>
         <p>Total des contributions cette année : <strong><?= number_format($total_year, 2) ?> €</strong></p>
         <p>Moyenne mensuelle des contributions : <strong><?= number_format($avg_month, 2) ?> €</strong></p>
         <p>Nombre total d'adhérents : <strong><?= $count_adherents ?></strong></p>
-        <p>Contributions : Cotisations: <strong><?= $cot_count ?></strong>, Dons: <strong><?= $don_count ?></strong>, Projets: <strong><?= $projet_count ?></strong></p>
+        <p>Contributions : 
+            - Cotisations: <strong><?= $cot_count ?></strong>, 
+            - Dons: <strong><?= $don_count ?></strong>, 
+            - Projets: <strong><?= $projet_count ?></strong>
+        </p>
         <p>Ratio Dons/Cotisations (en montant) cette année : <strong><?= $ratio_don_cot ?>%</strong></p>
         
         <h3>Top 5 Donateurs (Année <?= $currentYear ?>)</h3>
@@ -219,7 +263,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         <canvas id="repartitionType"></canvas>
     </div>
 
-    <!-- Cotisations -->
+    <!-- Onglet : Cotisations -->
     <div id="cotisations" class="tab-content" style="display:none;">
         <h2>Liste des Cotisations</h2>
         <table>
@@ -238,7 +282,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         </table>
     </div>
 
-    <!-- Dons -->
+    <!-- Onglet : Dons -->
     <div id="dons" class="tab-content" style="display:none;">
         <h2>Liste des Dons</h2>
         <table>
@@ -257,7 +301,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         </table>
     </div>
 
-    <!-- Projets -->
+    <!-- Onglet : Projets -->
     <div id="projets" class="tab-content" style="display:none;">
         <h2>Liste des Contributions Projets</h2>
         <table>
@@ -276,13 +320,16 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         </table>
     </div>
 
-    <!-- Liste des Contributions (pagination) -->
+    <!-- Onglet : Liste des Contributions (avec pagination) -->
     <div id="list" class="tab-content" style="display:none;">
         <h2>Liste des Contributions</h2>
         <p>Ici, vous pouvez ajouter des filtres et un bouton d'export.</p>
         <table>
             <tr>
-                <th>Nom</th><th>Type</th><th>Montant (€)</th><th>Date</th>
+                <th>Nom</th>
+                <th>Type</th>
+                <th>Montant (€)</th>
+                <th>Date</th>
             </tr>
             <?php foreach ($data_paginated as $contribution): ?>
             <tr>
@@ -294,6 +341,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
             <?php endforeach; ?>
         </table>
 
+        <!-- Pagination -->
         <div>
             <?php for ($i = 1; $i <= $total_pages; $i++): ?>
                 <a href="?page=<?= $i ?>" <?= $i == $page ? 'class="active"' : '' ?>><?= $i ?></a>
@@ -301,7 +349,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         </div>
     </div>
 
-    <!-- Recherche Adhérent -->
+    <!-- Onglet : Recherche Adhérent -->
     <div id="adherents" class="tab-content" style="display:none;">
         <h2>Recherche d'Adhérent</h2>
         <label>Nom/Email :
@@ -315,7 +363,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         <div id="adherentHistory"></div>
     </div>
 
-    <!-- Cotisations Mensuelles -->
+    <!-- Onglet : Cotisations Mensuelles -->
     <div id="cotisations_mensuelles" class="tab-content" style="display:none;">
         <h2>Cotisations Mensuelles - Année <?= htmlspecialchars($year) ?></h2>
         <table>
@@ -329,57 +377,74 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
             <?php $num=1; foreach ($adherents as $ad): 
                 $idAd = $ad['id'];
                 $monthly_fee = (float)$ad['monthly_fee'];
-                $st = $db->prepare("SELECT month, paid_amount FROM Cotisation_Months WHERE id_adherent=? AND year=? ORDER BY month");
+
+                // On récupère les lignes Cotisation_Months existantes pour cet adhérent sur l'année courante
+                $st = $db->prepare("
+                    SELECT month, paid_amount 
+                    FROM Cotisation_Months 
+                    WHERE id_adherent=? 
+                      AND year=? 
+                    ORDER BY month
+                ");
                 $st->execute([$idAd, $year]);
                 $mois_data = $st->fetchAll(PDO::FETCH_ASSOC);
+
+                // On va indexer par month pour un accès plus rapide
                 $mois_status = [];
                 foreach ($mois_data as $md) {
-                    $mois_status[$md['month']] = $md['paid_amount'];
+                    $mois_status[$md['month']] = (float)$md['paid_amount'];
                 }
 
+                // Dates d'adhésion (pour savoir si c'est "applicable" ou pas)
                 $start = $ad['start_date'] ? new DateTime($ad['start_date']) : null;
-                $end = $ad['end_date'] ? new DateTime($ad['end_date']) : null;
+                $end   = $ad['end_date']   ? new DateTime($ad['end_date']) : null;
                 ?>
                 <tr>
                     <td><?= $num++ ?></td>
-                    <td><?= htmlspecialchars($ad['nom']." ".$ad['prenom']) ?></td>
+                    <td><?= htmlspecialchars($ad['nom'] . " " . $ad['prenom']) ?></td>
+                    
                     <?php for ($m=1; $m<=12; $m++):
+                        // On construit la date du 1er du mois en cours
                         $dateM = new DateTime("$year-$m-01");
+
+                        // Vérifier si c'est dans la période d'adhésion
                         $applicable = true;
                         if ($start && $dateM < $start) $applicable = false;
-                        if ($end && $dateM > $end) $applicable = false;
+                        if ($end && $dateM > $end)     $applicable = false;
 
                         if (!$applicable) {
                             echo "<td style='background-color:#ccc'>N/A</td>";
                         } else {
+                            // Récupération du paid_amount (0 si pas de ligne)
                             $paid_amount = $mois_status[$m] ?? 0;
-                            $monthly_fee = (float)$ad['monthly_fee'];
+
+                            // Si monthly_fee <= 0 => pas de cotisation
                             if ($monthly_fee <= 0) {
-                                // Pas de cotisation mensuelle
                                 echo "<td style='background-color:#ccc'>N/A</td>";
                             } else {
                                 $reste = $monthly_fee - $paid_amount;
-                                if ($reste == 0) {
-                                    // Mois entièrement payé
-                                    echo "<td style='background-color:#aaffaa'>0€</td>";
+                                if ($reste <= 0) {
+                                    // Mois entièrement (ou surpayé, mais normalement ==0) 
+                                    echo "<td style='background-color:#aaffaa'>Payé</td>";
                                 } else {
-                                    // Mois pas entièrement réglé, afficher le montant manquant en négatif
-                                    // Par exemple, s'il manque 5€, afficher "-5€"
+                                    // Reste à payer
                                     echo "<td style='background-color:#ffaaaa'>-{$reste}€</td>";
                                 }
                             }
                         }
-                        
                     endfor; ?>
                 </tr>
             <?php endforeach; ?>
         </table>
     </div>
 
+    <!-- Onglet : Membres -->
     <div id="membres" class="tab-content" style="display:none;">
         <h2>Gestion des Membres</h2>
         <div style="margin-bottom:10px;">
-            <input type="text" id="searchMembre" placeholder="Rechercher un membre par nom/email..." style="width:300px;margin-right:10px;">
+            <input type="text" id="searchMembre" 
+                   placeholder="Rechercher un membre par nom/email..." 
+                   style="width:300px;margin-right:10px;">
             <button id="addMembreBtn">Ajouter un adhérent</button>
         </div>
         <table id="membresTable">
@@ -395,13 +460,12 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
                 </tr>
             </thead>
             <tbody>
-                <!-- Rempli via JS -->
+                <!-- Rempli via JS (fetchAdherents) -->
             </tbody>
         </table>
     </div>
-    
-
 </div>
+
 <!-- Modale Ajouter/Modifier Adhérent -->
 <div id="membreModal" class="modal hidden">
     <div class="modal-content">
@@ -440,34 +504,10 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
         document.getElementById(tab).style.display = 'block';
     }
+    // Onglet par défaut
+    showTab('stats');
 
-    const searchMembre = document.getElementById('searchMembre');
-    const membresTableBody = document.querySelector('#membresTable tbody');
-    const addMembreBtn = document.getElementById('addMembreBtn');
-    const membreModal = document.getElementById('membreModal');
-    const closeMembreModal = document.getElementById('closeMembreModal');
-    const membreForm = document.getElementById('membreForm');
-    const membreError = document.getElementById('membreError');
-    const membreModalTitle = document.getElementById('membreModalTitle');
-    const membre_id = document.getElementById('membre_id');
-    const membre_nom = document.getElementById('membre_nom');
-    const membre_prenom = document.getElementById('membre_prenom');
-    const membre_email = document.getElementById('membre_email');
-    const membre_telephone = document.getElementById('membre_telephone');
-    const membre_monthly_fee = document.getElementById('membre_monthly_fee');
-    const membre_start_date = document.getElementById('membre_start_date');
-    const membre_end_date = document.getElementById('membre_end_date');
-
-    const deleteModal = document.getElementById('deleteModal');
-    const closeDeleteModal = document.getElementById('closeDeleteModal');
-    const delete_id = document.getElementById('delete_id');
-    const deleteError = document.getElementById('deleteError');
-    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
-
-
-
-    // Graphiques
+    // Graphiques (stats globales)
     const ctxMois = document.getElementById('contributionsMois').getContext('2d');
     new Chart(ctxMois, {
         type: 'line',
@@ -490,7 +530,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
             labels: <?= json_encode(array_column($data_type, 'type_contribution')) ?>,
             datasets: [{
                 data: <?= json_encode(array_column($data_type, 'total')) ?>,
-                backgroundColor: ['green', 'orange', 'purple']
+                backgroundColor: ['green', 'orange', 'purple'] // par exemple
             }]
         }
     });
@@ -499,6 +539,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
     document.getElementById('searchAdherentBtn').addEventListener('click', () => {
         const term = document.getElementById('searchAdherent').value.trim();
         if (term === '') return;
+
         fetch('fetch_adherent_search.php?term=' + encodeURIComponent(term))
             .then(r => r.json())
             .then(data => {
@@ -538,11 +579,36 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
                 }
             });
     });
-    // MEMBRES-------------------
+
+    // GESTION MEMBRES
+    const searchMembre = document.getElementById('searchMembre');
+    const membresTableBody = document.querySelector('#membresTable tbody');
+    const addMembreBtn = document.getElementById('addMembreBtn');
+    const membreModal = document.getElementById('membreModal');
+    const closeMembreModal = document.getElementById('closeMembreModal');
+    const membreForm = document.getElementById('membreForm');
+    const membreError = document.getElementById('membreError');
+    const membreModalTitle = document.getElementById('membreModalTitle');
+    const membre_id = document.getElementById('membre_id');
+    const membre_nom = document.getElementById('membre_nom');
+    const membre_prenom = document.getElementById('membre_prenom');
+    const membre_email = document.getElementById('membre_email');
+    const membre_telephone = document.getElementById('membre_telephone');
+    const membre_monthly_fee = document.getElementById('membre_monthly_fee');
+    const membre_start_date = document.getElementById('membre_start_date');
+    const membre_end_date = document.getElementById('membre_end_date');
+
+    const deleteModal = document.getElementById('deleteModal');
+    const closeDeleteModal = document.getElementById('closeDeleteModal');
+    const delete_id = document.getElementById('delete_id');
+    const deleteError = document.getElementById('deleteError');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
     function fetchAdherents(term='') {
-        fetch('fetch_adherents.php?term='+encodeURIComponent(term))
-            .then(r=>r.json())
-            .then(data=>{
+        fetch('fetch_adherents.php?term=' + encodeURIComponent(term))
+            .then(r => r.json())
+            .then(data => {
                 membresTableBody.innerHTML = '';
                 data.forEach(ad => {
                     const tr = document.createElement('tr');
@@ -561,15 +627,14 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
                     membresTableBody.appendChild(tr);
                 });
 
-                document.querySelectorAll('.editBtn').forEach(btn=>{
-                    btn.addEventListener('click', ()=>{
+                document.querySelectorAll('.editBtn').forEach(btn => {
+                    btn.addEventListener('click', () => {
                         const id = btn.getAttribute('data-id');
                         editAdherent(id);
                     });
                 });
-
-                document.querySelectorAll('.deleteBtn').forEach(btn=>{
-                    btn.addEventListener('click', ()=>{
+                document.querySelectorAll('.deleteBtn').forEach(btn => {
+                    btn.addEventListener('click', () => {
                         const id = btn.getAttribute('data-id');
                         delete_id.value = id;
                         deleteError.textContent = '';
@@ -577,19 +642,16 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
                     });
                 });
             })
-            .catch(err=>console.error(err));
+            .catch(err => console.error(err));
     }
 
     function editAdherent(id) {
-        // Récupérer les infos de l'adhérent, on peut réutiliser fetch_adherents.php?term et filtrer côté client
-        // Ou créer un endpoint fetch_one_adherent.php
-        // Pour simplifier, on va filtrer côté client après avoir fetch la liste, ou faire un endpoint rapide.
-
+        // Simplement re-fetch la liste de tous, puis trouver l'adhérent par ID
         fetch('fetch_adherents.php?term=')
-            .then(r=>r.json())
-            .then(data=>{
-                const adh = data.find(a=>a.id==id);
-                if(!adh) return;
+            .then(r => r.json())
+            .then(data => {
+                const adh = data.find(a => a.id == id);
+                if (!adh) return;
                 membre_id.value = adh.id;
                 membre_nom.value = adh.nom;
                 membre_prenom.value = adh.prenom;
@@ -604,81 +666,78 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
             });
     }
 
-    searchMembre.addEventListener('input', ()=>{
+    searchMembre.addEventListener('input', () => {
         fetchAdherents(searchMembre.value);
     });
 
-    addMembreBtn.addEventListener('click', ()=>{
-        membre_id.value='';
-        membre_nom.value='';
-        membre_prenom.value='';
-        membre_email.value='';
-        membre_telephone.value='';
-        membre_monthly_fee.value='';
-        membre_start_date.value='';
-        membre_end_date.value='';
+    addMembreBtn.addEventListener('click', () => {
+        membre_id.value = '';
+        membre_nom.value = '';
+        membre_prenom.value = '';
+        membre_email.value = '';
+        membre_telephone.value = '';
+        membre_monthly_fee.value = '';
+        membre_start_date.value = '';
+        membre_end_date.value = '';
         membreModalTitle.textContent = "Ajouter un adhérent";
         membreError.textContent = '';
         membreModal.classList.remove('hidden');
     });
 
-    closeMembreModal.addEventListener('click', ()=>{
+    closeMembreModal.addEventListener('click', () => {
         membreModal.classList.add('hidden');
     });
 
-    membreForm.addEventListener('submit', (e)=>{
+    membreForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const formData = new FormData(membreForm);
         let url = 'insert_adherent.php';
-        if(membre_id.value) {
-            // Si id existe => update
+        if (membre_id.value) {
+            // Si l'ID existe => update
             url = 'update_adherent.php';
         }
         fetch(url, {
-            method:'POST',
-            body:formData
+            method: 'POST',
+            body: formData
         })
-        .then(r=>r.json())
-        .then(resp=>{
-            if(resp.success) {
+        .then(r => r.json())
+        .then(resp => {
+            if (resp.success) {
                 membreModal.classList.add('hidden');
                 fetchAdherents(searchMembre.value);
             } else {
                 membreError.textContent = resp.message;
             }
         })
-        .catch(err=>console.error(err));
+        .catch(err => console.error(err));
     });
 
-    closeDeleteModal.addEventListener('click', ()=>{
+    closeDeleteModal.addEventListener('click', () => {
         deleteModal.classList.add('hidden');
     });
-
-    cancelDeleteBtn.addEventListener('click', ()=>{
+    cancelDeleteBtn.addEventListener('click', () => {
         deleteModal.classList.add('hidden');
     });
-
-    confirmDeleteBtn.addEventListener('click', ()=>{
+    confirmDeleteBtn.addEventListener('click', () => {
         const formData = new FormData();
         formData.append('id', delete_id.value);
         fetch('delete_adherent.php', {
-            method:'POST',
-            body:formData
+            method: 'POST',
+            body: formData
         })
-        .then(r=>r.json())
-        .then(resp=>{
-            if(resp.success) {
+        .then(r => r.json())
+        .then(resp => {
+            if (resp.success) {
                 deleteModal.classList.add('hidden');
                 fetchAdherents(searchMembre.value);
             } else {
                 deleteError.textContent = resp.message;
             }
         })
-        .catch(err=>console.error(err));
+        .catch(err => console.error(err));
     });
 
-    // Onglet par défaut
-    showTab('stats');
+    // Au chargement initial, on remplit la liste des membres
     fetchAdherents();
 </script>
 </body>
