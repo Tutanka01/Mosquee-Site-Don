@@ -121,3 +121,5 @@ Ce projet a pour but de mettre en place un système de gestion des dons, cotisat
 
 ### Mise à jour automatique des données
 - Après chaque insertion d’adhérent ou de contribution, la liste des adhérents (sur `index.php`) ou la liste des contributions (`dashboard.php`) peut être actualisée en rafraîchissant la page ou via AJAX (si implémenté).
+
+https://gitingest.com/Tutanka01/Mosquee-Site-Don/settings

@@ -198,8 +198,16 @@ $data_paginated = $query_paginated->fetchAll(PDO::FETCH_ASSOC);
 $total = $db->query("SELECT COUNT(*) as count FROM Contributions")->fetch(PDO::FETCH_ASSOC)['count'];
 $total_pages = ceil($total / $items_per_page);
 
-// Cotisations Mensuelles (pour l'affichage du tableau)
-$year = $currentYear;
+// --------------------------------------------------------------
+// GESTION DU TABLEAU COTISATIONS MENSUELLES (avec sélecteur d'année)
+// --------------------------------------------------------------
+
+// 1) Récupérer l'année sélectionnée via GET (ou défaut = année courante)
+$selectedYear = isset($_GET['cot_year']) ? (int)$_GET['cot_year'] : (int)date('Y');
+
+// 2) Vous pouvez définir une fourchette d'années (par exemple 2020..2030)
+$yearOptions = range(2020, 2030); // Ajustez selon vos besoins
+
 // Récupération de tous les adhérents (non anonymes)
 $adherents = $db->query("
     SELECT id, nom, prenom, monthly_fee, start_date, end_date 
@@ -207,6 +215,7 @@ $adherents = $db->query("
     ORDER BY nom, prenom
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+// Labels pour les mois
 $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept","Octo","Nove","Dece"];
 ?>
 <!DOCTYPE html>
@@ -365,7 +374,26 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
 
     <!-- Onglet : Cotisations Mensuelles -->
     <div id="cotisations_mensuelles" class="tab-content" style="display:none;">
-        <h2>Cotisations Mensuelles - Année <?= htmlspecialchars($year) ?></h2>
+        <h2>Cotisations Mensuelles</h2>
+
+        <!-- Sélecteur d'année pour naviguer -->
+        <form method="GET" action="dashboard.php" style="margin-bottom: 10px;">
+            <!-- pour rester sur le bon onglet après validation -->
+            <input type="hidden" name="tab" value="cotisations_mensuelles">
+
+            <label>Choisir une année :
+                <select name="cot_year">
+                    <?php foreach ($yearOptions as $y): ?>
+                        <option value="<?= $y ?>" <?= ($y == $selectedYear ? 'selected' : '') ?>>
+                            <?= $y ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <button type="submit">Afficher</button>
+        </form>
+
+        <h3>Tableau de l'année <?= htmlspecialchars($selectedYear) ?></h3>
         <table>
             <tr>
                 <th>#</th>
@@ -374,11 +402,13 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
                     <th><?= $ml ?></th>
                 <?php endforeach; ?>
             </tr>
-            <?php $num=1; foreach ($adherents as $ad): 
+            <?php 
+            $num=1;
+            foreach ($adherents as $ad): 
                 $idAd = $ad['id'];
                 $monthly_fee = (float)$ad['monthly_fee'];
 
-                // On récupère les lignes Cotisation_Months existantes pour cet adhérent sur l'année courante
+                // Récupère les lignes Cotisation_Months pour L'ANNÉE sélectionnée
                 $st = $db->prepare("
                     SELECT month, paid_amount 
                     FROM Cotisation_Months 
@@ -386,28 +416,28 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
                       AND year=? 
                     ORDER BY month
                 ");
-                $st->execute([$idAd, $year]);
+                $st->execute([$idAd, $selectedYear]);
                 $mois_data = $st->fetchAll(PDO::FETCH_ASSOC);
 
-                // On va indexer par month pour un accès plus rapide
+                // On indexe par "month"
                 $mois_status = [];
                 foreach ($mois_data as $md) {
                     $mois_status[$md['month']] = (float)$md['paid_amount'];
                 }
 
-                // Dates d'adhésion (pour savoir si c'est "applicable" ou pas)
+                // Récupération des dates d'adhésion
                 $start = $ad['start_date'] ? new DateTime($ad['start_date']) : null;
                 $end   = $ad['end_date']   ? new DateTime($ad['end_date']) : null;
                 ?>
                 <tr>
                     <td><?= $num++ ?></td>
-                    <td><?= htmlspecialchars($ad['nom'] . " " . $ad['prenom']) ?></td>
+                    <td><?= htmlspecialchars($ad['nom']." ".$ad['prenom']) ?></td>
                     
                     <?php for ($m=1; $m<=12; $m++):
-                        // On construit la date du 1er du mois en cours
-                        $dateM = new DateTime("$year-$m-01");
+                        $dateM = new DateTime("{$selectedYear}-{$m}-01");
 
-                        // Vérifier si c'est dans la période d'adhésion
+                        // Test "applicable" : si start_date existe et qu'on est avant => N/A
+                        // si end_date existe et qu'on est après => N/A
                         $applicable = true;
                         if ($start && $dateM < $start) $applicable = false;
                         if ($end && $dateM > $end)     $applicable = false;
@@ -415,19 +445,17 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
                         if (!$applicable) {
                             echo "<td style='background-color:#ccc'>N/A</td>";
                         } else {
-                            // Récupération du paid_amount (0 si pas de ligne)
-                            $paid_amount = $mois_status[$m] ?? 0;
-
-                            // Si monthly_fee <= 0 => pas de cotisation
+                            // monthly_fee <= 0 => pas de cotisation
                             if ($monthly_fee <= 0) {
                                 echo "<td style='background-color:#ccc'>N/A</td>";
                             } else {
+                                // Récup paid_amount = 0 si pas de ligne
+                                $paid_amount = $mois_status[$m] ?? 0;
                                 $reste = $monthly_fee - $paid_amount;
+
                                 if ($reste <= 0) {
-                                    // Mois entièrement (ou surpayé, mais normalement ==0) 
                                     echo "<td style='background-color:#aaffaa'>Payé</td>";
                                 } else {
-                                    // Reste à payer
                                     echo "<td style='background-color:#ffaaaa'>-{$reste}€</td>";
                                 }
                             }
@@ -504,8 +532,18 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
         document.getElementById(tab).style.display = 'block';
     }
-    // Onglet par défaut
-    showTab('stats');
+
+    // Si on veut revenir directement à l'onglet "cotisations_mensuelles" quand on a soumis le select,
+    // on peut détecter ?tab=cotisations_mensuelles dans l'URL, sinon on affiche stats par défaut.
+    (function checkActiveTab() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get('tab');
+        if (tab) {
+            showTab(tab);
+        } else {
+            showTab('stats');
+        }
+    })();
 
     // Graphiques (stats globales)
     const ctxMois = document.getElementById('contributionsMois').getContext('2d');
@@ -530,7 +568,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
             labels: <?= json_encode(array_column($data_type, 'type_contribution')) ?>,
             datasets: [{
                 data: <?= json_encode(array_column($data_type, 'total')) ?>,
-                backgroundColor: ['green', 'orange', 'purple'] // par exemple
+                backgroundColor: ['green', 'orange', 'purple'] 
             }]
         }
     });
@@ -646,7 +684,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
     }
 
     function editAdherent(id) {
-        // Simplement re-fetch la liste de tous, puis trouver l'adhérent par ID
+        // On recharge la liste, puis on cherche l'adhérent
         fetch('fetch_adherents.php?term=')
             .then(r => r.json())
             .then(data => {
@@ -693,7 +731,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         const formData = new FormData(membreForm);
         let url = 'insert_adherent.php';
         if (membre_id.value) {
-            // Si l'ID existe => update
+            // Si un ID existe => update
             url = 'update_adherent.php';
         }
         fetch(url, {
@@ -722,19 +760,19 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         const formData = new FormData();
         formData.append('id', delete_id.value);
         fetch('delete_adherent.php', {
-            method: 'POST',
-            body: formData
+            method:'POST',
+            body:formData
         })
-        .then(r => r.json())
-        .then(resp => {
-            if (resp.success) {
+        .then(r=>r.json())
+        .then(resp=>{
+            if(resp.success) {
                 deleteModal.classList.add('hidden');
                 fetchAdherents(searchMembre.value);
             } else {
                 deleteError.textContent = resp.message;
             }
         })
-        .catch(err => console.error(err));
+        .catch(err=>console.error(err));
     });
 
     // Au chargement initial, on remplit la liste des membres
