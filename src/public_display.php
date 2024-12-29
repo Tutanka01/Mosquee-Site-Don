@@ -1,26 +1,20 @@
 <?php
 // File: /src/public_display.php
+
 include 'db.php';
 
-// Définir l'année que l'on veut afficher : ex. l'année en cours
+// 1) Déterminer l'année grégorienne pour le tableau
 $currentYear = date('Y');
 
-// 1) Récupérer la liste des adhérents
-//    On peut filtrer si on veut seulement ceux qui ont start_date <= now et (end_date >= now OR end_date IS NULL).
-//    Ici, on prend tout le monde pour l'exemple.
+// 2) Récupérer la liste des adhérents
 $adherents = $db->query("
     SELECT id, nom, prenom, monthly_fee, start_date, end_date
     FROM Adherents
     ORDER BY nom, prenom
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Pour l'affichage du nom, on fusionne "nom + prenom"
-// Mais vous pouvez l'afficher séparé si vous voulez
-// On utilisera direct `$ad['nom']` et `$ad['prenom']` ci-dessous.
-
-// 2) Fonctions d'aide : Récupérer la situation d'un adhérent pour un mois donné
+// 3) Fonction getPaidAmount identique à avant
 function getPaidAmount($db, $idAdherent, $year, $month) {
-    // On cherche la ligne dans Cotisation_Months
     $st = $db->prepare("
         SELECT paid_amount
         FROM Cotisation_Months
@@ -30,13 +24,9 @@ function getPaidAmount($db, $idAdherent, $year, $month) {
     ");
     $st->execute([$idAdherent, $year, $month]);
     $row = $st->fetch(PDO::FETCH_ASSOC);
-    if ($row) {
-        return (float)$row['paid_amount'];
-    }
-    return 0.0; // Si aucune ligne => 0€ payé
+    return $row ? (float)$row['paid_amount'] : 0.0;
 }
 
-// 3) Préparer le tableau HTML
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -140,11 +130,13 @@ function getPaidAmount($db, $idAdherent, $year, $month) {
   </style>
 </head>
 <body>
-  <!-- En-tête style PDF -->
   <div class="header">
     <h1>مسجد الرحمة  (Mosquée Errahma)</h1>
-    <!-- Vous pouvez mettre l'année hijri calculée ou saisie -->
-    <h2>LA CHARTE ANNÉE <?= htmlspecialchars($currentYear) ?> - 1446/1445 Hijri</h2>
+    <!-- On affiche l'année en cours (grégorienne), et on a un span pour l'année hijri -->
+    <h2>
+      LA CHARTE ANNÉE <?= htmlspecialchars($currentYear) ?> - Hijri 
+      <span id="hijriYear">1445</span>
+    </h2>
   </div>
 
   <div class="container">
@@ -172,37 +164,28 @@ function getPaidAmount($db, $idAdherent, $year, $month) {
       <tbody>
         <?php 
         $num = 1;
-        foreach ($adherents as $ad) {   
-            // On peut décider si on veut ignorer ceux qui n'ont pas de start_date (?)
-            // ou si on veut vérifier que le start_date <= 1er Janv de $currentYear
-            // à vous de voir. Ici on affiche tout.
-
+        foreach ($adherents as $ad) {
             echo "<tr>";
             echo "<td>{$num}</td>";
             echo "<td class='name-col'>" . htmlspecialchars($ad['nom'] . " " . $ad['prenom']) . "</td>";
 
-            // monthly_fee
             $monthlyFee = (float)$ad['monthly_fee'];
 
-            // Pour chaque mois (1..12)
+            // Pour chaque mois de l'année $currentYear
             for ($m=1; $m <= 12; $m++) {
                 $paid = getPaidAmount($db, $ad['id'], $currentYear, $m);
 
                 if ($monthlyFee <= 0) {
-                    // Pas de cotisation
                     echo "<td class='nonpaye'>-</td>";
                     continue;
                 }
 
                 if ($paid <= 0) {
-                    // 0€ => Non payé
                     echo "<td class='nonpaye'>0€</td>";
                 } elseif ($paid >= $monthlyFee) {
-                    // Complètement payé
-                    // On affiche le montant (ex: "15€") ou "OK"
                     echo "<td class='paid'>" . $paid . "€</td>";
                 } else {
-                    // Partiel => par ex "10/15€"
+                    // Partiel => ex: "10/15€"
                     echo "<td class='partiel'>" . $paid . "/" . $monthlyFee . "€</td>";
                 }
             }
@@ -220,5 +203,43 @@ function getPaidAmount($db, $idAdherent, $year, $month) {
       <span class="nonpaye-label">Non Payé</span>
     </div>
   </div>
+
+  <!-- On inclut la librairie Um Al Qura depuis unpkg -->
+  <script src="https://unpkg.com/@umalqura/core@0.0.7/dist/umalqura.min.js"></script>
+  <script>
+    /**
+     * ICI : on calcule l'année hijri du "jour de la requête" (= date maintenant).
+     * 1) On récupère la date "Aujourd'hui"
+     * 2) On regarde l'année hijri "hyNow" via umalqura
+     * 3) On compare la date du jour avec la date de 1 Muharram de "hyNow + 1"
+     *    => si "today" >= ce 1 Muharram => on est déjà dans la nouvelle année
+     *    => sinon on reste dans hyNow
+     */
+
+    // 1) Date du jour
+    const today = new Date(); // ex. 10 mars 2024
+
+    // 2) On obtient l'année hijri "actuelle" d'après le calcul
+    const dHijri = umalqura(today);
+    const hijriNow = dHijri.hy; // par ex. 1445
+
+    // On considère la prochaine année hijri
+    const nextHijri = hijriNow + 1;
+
+    // 3) Trouver la date (en grégorien) du "1 Muharram" de nextHijri
+    const dateOneMuharramNext = umalqura(nextHijri, 1, 1).date;
+
+    let finalHijriYear;
+    if (today >= dateOneMuharramNext) {
+      // On a déjà franchi 1er Muharram => on est dans nextHijri
+      finalHijriYear = nextHijri;
+    } else {
+      // Sinon on reste dans hijriNow
+      finalHijriYear = hijriNow;
+    }
+
+    // On affiche dans le span
+    document.getElementById('hijriYear').textContent = finalHijriYear;
+  </script>
 </body>
 </html>
