@@ -164,35 +164,50 @@ function getPaidAmount($db, $idAdherent, $year, $month) {
       <tbody>
         <?php 
         $num = 1;
-        foreach ($adherents as $ad) {
-            echo "<tr>";
-            echo "<td>{$num}</td>";
-            echo "<td class='name-col'>" . htmlspecialchars($ad['nom'] . " " . $ad['prenom']) . "</td>";
+    // Pour chaque adhérent
+    foreach ($adherents as $ad) {
+        echo "<tr>";
+        echo "<td>{$num}</td>";
+        echo "<td class='name-col'>" . htmlspecialchars($ad['nom'] . " " . $ad['prenom']) . "</td>";
 
-            $monthlyFee = (float)$ad['monthly_fee'];
+        $monthlyFee = (float)$ad['monthly_fee'];
+        // Récupération du start_date
+        $start = $ad['start_date'] ? new DateTime($ad['start_date']) : null;
 
-            // Pour chaque mois de l'année $currentYear
-            for ($m=1; $m <= 12; $m++) {
-                $paid = getPaidAmount($db, $ad['id'], $currentYear, $m);
+        // Boucle sur les 12 mois de l’année $currentYear
+        for ($m=1; $m <= 12; $m++) {
+            // Construire la date du 1er du mois
+            $thisMonth = new DateTime("$currentYear-$m-01");
 
-                if ($monthlyFee <= 0) {
-                    echo "<td class='nonpaye'>-</td>";
-                    continue;
-                }
-
-                if ($paid <= 0) {
-                    echo "<td class='nonpaye'>0€</td>";
-                } elseif ($paid >= $monthlyFee) {
-                    echo "<td class='paid'>" . $paid . "€</td>";
-                } else {
-                    // Partiel => ex: "10/15€"
-                    echo "<td class='partiel'>" . $paid . "/" . $monthlyFee . "€</td>";
-                }
+            // 1) Vérifier si c’est avant la date d’arrivée
+            if ($start && $thisMonth < $start) {
+                // Pas applicable => N/A
+                echo "<td style='background:#ccc'>N/A</td>";
+                continue;
             }
 
-            echo "</tr>";
-            $num++;
+            // 2) Ensuite, la logique de paid_amount
+            $paid = getPaidAmount($db, $ad['id'], $currentYear, $m);
+
+            if ($monthlyFee <= 0) {
+                // L’adhérent n’a pas de monthlyFee => N/A ou “-”
+                echo "<td style='background:#ccc'>N/A</td>";
+                continue;
+            }
+
+            if ($paid <= 0) {
+                echo "<td class='nonpaye'>0€</td>";
+            } elseif ($paid >= $monthlyFee) {
+                echo "<td class='paid'>" . $paid . "€</td>";
+            } else {
+                // Partiel
+                echo "<td class='partiel'>" . $paid . "/" . $monthlyFee . "€</td>";
+            }
         }
+        echo "</tr>";
+        $num++;
+        }
+
         ?>
       </tbody>
     </table>
