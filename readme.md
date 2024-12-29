@@ -2,6 +2,12 @@
 
 Ce projet vise à mettre en place un système complet de gestion des contributions, dons, cotisations, et projets pour la Mosquée Errahma. Il permet de suivre les contributions des adhérents et donateurs, de gérer les cotisations mensuelles, et de visualiser les statistiques grâce à un tableau de bord interactif.
 
+## Schema global du projet
+
+![schema.png](images/schema.png)
+
+> Par https://gitdiagram.com
+
 ## Fonctionnalités
 
 - **Gestion des adhérents et donateurs** :
