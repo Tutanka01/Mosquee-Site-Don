@@ -14,6 +14,16 @@ $prenom_donateur = $_POST['prenom_donateur'] ?? null;
 $email_donateur = $_POST['email_donateur'] ?? null;
 $telephone_donateur = $_POST['telephone_donateur'] ?? null;
 
+$adherentFullName = '';
+if ($type_contribution === 'cotisation' && $id_adherent) {
+    $sth = $db->prepare("SELECT nom, prenom FROM Adherents WHERE id=?");
+    $sth->execute([$id_adherent]);
+    $adInfo = $sth->fetch(PDO::FETCH_ASSOC);
+    if ($adInfo) {
+        $adherentFullName = $adInfo['nom'].' '.$adInfo['prenom'];
+    }
+}
+
 if ($type_paiement === '') {
     die("Erreur : le type de paiement est obligatoire.");
 }
@@ -155,6 +165,97 @@ if ($type_contribution === 'cotisation' && $id_adherent) {
     }
 }
 
-echo "Contribution enregistrée avec succès.";
 ?>
-<a href="index.php">Retour</a>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Contribution Enregistrée</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f9;
+      margin:0; 
+      padding:0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #007BFF;
+      margin-top: 0;
+    }
+    .recap {
+      margin: 20px 0;
+      font-size: 1.1em;
+      line-height: 1.4em;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .recap strong {
+      color: #333;
+    }
+    .btn-group {
+      text-align: center;
+      margin-top: 20px;
+    }
+    a.button {
+      display: inline-block;
+      margin: 5px;
+      padding: 10px 20px;
+      background: #007BFF;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    a.button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Contribution Enregistrée</h1>
+
+  <div class="recap">
+    <p>La contribution suivante a été ajoutée avec succès :</p>
+    <ul>
+      <li><strong>Type :</strong> <?= htmlspecialchars($type_contribution) ?></li>
+      <li><strong>Montant :</strong> <?= number_format($montant, 2) ?> €</li>
+      <li><strong>Mode de paiement :</strong> <?= htmlspecialchars($type_paiement) ?></li>
+
+      <?php if ($type_contribution === 'cotisation' && $id_adherent): ?>
+        <li><strong>Adhérent :</strong>
+          <?= htmlspecialchars($adherentFullName ?: "ID #".$id_adherent) ?>
+        </li>
+      <?php elseif ($type_contribution !== 'cotisation' && !$anonyme): ?>
+        <li><strong>Donateur :</strong> 
+          <?= htmlspecialchars($nom_donateur . ' ' . $prenom_donateur) ?>
+        </li>
+      <?php else: ?>
+        <li><strong>Donateur :</strong> Anonyme</li>
+      <?php endif; ?>
+
+      <li><em>Date d'enregistrement :</em> <?= date('d/m/Y H:i') ?></li>
+    </ul>
+  </div>
+
+  <div class="btn-group">
+    <a class="button" href="index.php">Nouvelle Contribution</a>
+    <a class="button" href="dashboard.php">Aller au Tableau de Bord</a>
+    <a class="button" href="public_display.php">Voir l'Affichage Public</a>
+  </div>
+</div>
+
+</body>
+</html>
