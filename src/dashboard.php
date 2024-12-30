@@ -239,6 +239,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         <button onclick="showTab('adherents')">Recherche Adhérent</button>
         <button onclick="showTab('cotisations_mensuelles')">Cotisations Mensuelles</button>
         <button onclick="showTab('membres')">Membres</button>
+        <button onclick="showTab('factures')">Factures</button> 
     </div>
 
     <!-- Onglet : Statistiques Globales -->
@@ -353,7 +354,7 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
         <!-- Pagination -->
         <div>
             <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                <a href="?page=<?= $i ?>" <?= $i == $page ? 'class="active"' : '' ?>><?= $i ?></a>
+                <a href="?tab=list&page=<?= $i ?>" <?= $i == $page ? 'class="active"' : '' ?>><?= $i ?></a>
             <?php endfor; ?>
         </div>
     </div>
@@ -494,6 +495,26 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
     </div>
 </div>
 
+    <!-- Onglet : Factures -->
+<div id="factures" class="tab-content" style="display:none;">
+        <h2>Liste des Factures</h2>
+        <table id="facturesTable">
+            <thead>
+                <tr>
+                    <th>N° Facture</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Contributeur</th>
+                    <th>Montant</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Les factures seront ajoutées ici via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
 <!-- Modale Ajouter/Modifier Adhérent -->
 <div id="membreModal" class="modal hidden">
     <div class="modal-content">
@@ -528,12 +549,46 @@ $mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept",
 </div>
 
 <script>
+    function fetchReceipts() {
+        fetch('fetch_receipts.php')
+            .then(r => r.json())
+            .then(data => {
+                const tableBody = document.querySelector('#facturesTable tbody');
+                tableBody.innerHTML = '';
+                data.forEach(receipt => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${receipt.filename}</td>
+                        <td>${receipt.date}</td>
+                        <td>${receipt.type}</td>
+                        <td>${receipt.contributor}</td>
+                        <td>${receipt.amount} €</td>
+                        <td>
+                            <a href="receipts/${receipt.filename}" target="_blank">Voir</a>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            })
+            .catch(err => console.error("Erreur lors de la récupération des factures :", err));
+    }
+
+    // Appeler fetchReceipts() lorsque l'onglet "Factures" est affiché
+    function showTab(tab) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.getElementById(tab).style.display = 'block';
+
+        if (tab === 'factures') {
+            fetchReceipts();
+        }
+    }
+
     function showTab(tab) {
         document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
         document.getElementById(tab).style.display = 'block';
     }
 
-    // Si on veut revenir directement à l'onglet "cotisations_mensuelles" quand on a soumis le select,
+    // Si on veut revenir directement à l'onglet "cotisations_mensu elles" quand on a soumis le select,
     // on peut détecter ?tab=cotisations_mensuelles dans l'URL, sinon on affiche stats par défaut.
     (function checkActiveTab() {
         const urlParams = new URLSearchParams(window.location.search);

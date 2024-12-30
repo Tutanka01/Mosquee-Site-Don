@@ -189,16 +189,66 @@ if ($type_contribution === 'cotisation' && $id_adherent) {
 $receiptType        = htmlspecialchars($type_contribution);
 $receiptMontant     = number_format($montant, 2).' €';
 $receiptDate        = date('d/m/Y H:i');
+
+// On initialise $receiptContributor à "Anonyme" par défaut
 $receiptContributor = "Anonyme";
+
+// Si c'est une cotisation ET l'id_adherent est défini
 if ($type_contribution === 'cotisation' && $id_adherent) {
-    $receiptContributor = ($adherentFullName !== '') ? $adherentFullName : ("ID #".$id_adherent);
-}
-elseif (($type_contribution==='don' || $type_contribution==='projet') && !$anonyme) {
-    if ($id_adherent) {
-        $receiptContributor = ($adherentFullName !== '') ? $adherentFullName : ("ID #".$id_adherent);
+    // On récupère les infos de l'adhérent
+    $sth = $db->prepare("SELECT nom, prenom FROM Adherents WHERE id=?");
+    $sth->execute([$id_adherent]);
+    $adInfo = $sth->fetch(PDO::FETCH_ASSOC);
+
+    // Si l'adhérent existe, on utilise son nom et prénom
+    if ($adInfo) {
+        $receiptContributor = $adInfo['nom'].' '.$adInfo['prenom'];
     } else {
+        // Si l'adhérent n'existe pas (ne devrait pas arriver en théorie), on affiche "ID #<id>"
+        $receiptContributor = "ID #".$id_adherent;
+    }
+}
+// Si c'est un don ou un projet ET pas anonyme
+elseif (($type_contribution === 'don' || $type_contribution === 'projet') && !$anonyme) {
+    // Si id_adherent est défini, on récupère les infos de l'adhérent
+    if ($id_adherent) {
+        $sth = $db->prepare("SELECT nom, prenom FROM Adherents WHERE id=?");
+        $sth->execute([$id_adherent]);
+        $adInfo = $sth->fetch(PDO::FETCH_ASSOC);
+
+        // Si l'adhérent existe, on utilise son nom et prénom
+        if ($adInfo) {
+            $receiptContributor = $adInfo['nom'].' '.$adInfo['prenom'];
+        } else {
+            // Si l'adhérent n'existe pas (ne devrait pas arriver en théorie), on affiche "ID #<id>"
+            $receiptContributor = "ID #".$id_adherent;
+        }
+    } else {
+        // Sinon, on utilise les noms et prénoms du donateur
         $receiptContributor = trim(($nom_donateur ?? '').' '.($prenom_donateur ?? ''));
     }
+}
+
+// Type de paiement en clair
+$typePaiement = "";
+switch ($type_paiement) {
+    case 'espèces':
+        $typePaiement = "Espèces";
+        break;
+    case 'carte':
+        $typePaiement = "Carte bancaire";
+        break;
+    case 'virement':
+        $typePaiement = "Virement bancaire";
+        break;
+    default:
+        $typePaiement = "Inconnu";
+}
+
+// Mois concernés (pour cotisation)
+$moisConcernes = "";
+if ($type_contribution === 'cotisation' && $mois) {
+    $moisConcernes = "Mois concerné : " . $mois;
 }
 
 // On construit un HTML stylé
@@ -211,66 +261,155 @@ $html = <<<HTML
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Reçu de Contribution</title>
+  <title>Reçu de Contribution - Mosquée Errahma</title>
   <style>
+    @page {
+      margin: 0;
+    }
     body {
       font-family: DejaVu Sans, Arial, sans-serif;
-      margin: 0; 
-      padding: 20px;
-      color: #333;
+      margin: 0;
+      padding: 30px;
+      color: #2C3E50;
+      background: #fff;
+    }
+    .border-pattern {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 15px solid transparent;
+      border-image: repeating-linear-gradient(45deg, #1B4F72, #1B4F72 10px, transparent 10px, transparent 20px) 15;
+      z-index: -1;
+    }
+    .content {
+      position: relative;
+      z-index: 1;
     }
     .header {
       text-align: center;
-      border-bottom: 2px solid #000;
-      margin-bottom: 20px;
+      margin-bottom: 40px;
+      position: relative;
     }
-    .header h1 { margin: 0; font-size: 1.3em; }
-    .section { margin: 20px 0; line-height: 1.4em; }
-    .info-line { margin: 5px 0; }
-    .info-label { font-weight: bold; display: inline-block; width: 120px; }
+    .mosque-icon {
+      width: 60px;
+      height: 60px;
+      margin-bottom: 10px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      color: #1B4F72;
+      font-weight: bold;
+    }
+    .header p {
+      margin: 5px 0;
+      color: #34495E;
+    }
+    .section {
+      background: #F8F9F9;
+      border-radius: 8px;
+      padding: 25px;
+      margin: 20px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .title {
+      font-size: 20px;
+      color: #1B4F72;
+      margin-bottom: 20px;
+      text-align: center;
+      border-bottom: 2px solid #1B4F72;
+      padding-bottom: 10px;
+    }
+    .info-line {
+      margin: 12px 0;
+      display: flex;
+      align-items: center;
+    }
+    .info-label {
+      font-weight: bold;
+      width: 180px;
+      color: #34495E;
+    }
+    .info-value {
+      flex: 1;
+    }
     .footer {
       margin-top: 40px;
       text-align: center;
+      color: #7F8C8D;
       font-size: 0.9em;
-      color: #555;
-      border-top: 1px solid #999;
-      padding-top: 10px;
+      border-top: 1px solid #BDC3C7;
+      padding-top: 20px;
     }
-    .title { font-size: 1.2em; margin-bottom: 10px; text-decoration: underline; }
+    .stamp {
+      position: absolute;
+      right: 40px;
+      bottom: 40px;
+      width: 120px;
+      height: 120px;
+      border: 2px solid #1B4F72;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #1B4F72;
+      font-weight: bold;
+      transform: rotate(-15deg);
+      opacity: 0.8;
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>$mosqueeName</h1>
-    <p>$adresseMosquee</p>
-  </div>
+  <div class="border-pattern"></div>
+  <div class="content">
+    <div class="header">
+      <svg class="mosque-icon" viewBox="0 0 100 100">
+        <path d="M50 10 L80 40 L80 90 L20 90 L20 40 Z" fill="none" stroke="#1B4F72" stroke-width="3"/>
+        <path d="M45 90 L45 70 L55 70 L55 90" fill="none" stroke="#1B4F72" stroke-width="3"/>
+        <circle cx="50" cy="30" r="10" fill="none" stroke="#1B4F72" stroke-width="3"/>
+      </svg>
+      <h1>Mosquée Errahma</h1>
+      <p>262 Av. du Capitaine Michel Lespine, 40000 Mont-de-Marsan</p>
+    </div>
 
-  <div class="section">
-    <div class="title">Reçu de Contribution</div>
-    <div class="info-line">
-      <span class="info-label">Date :</span>
-      <span>$receiptDate</span>
+    <div class="section">
+      <div class="title">Reçu de Contribution</div>
+      <div class="info-line">
+        <span class="info-label">Date et heure :</span>
+        <span class="info-value">$receiptDate</span>
+      </div>
+      <div class="info-line">
+        <span class="info-label">Type de contribution :</span>
+        <span class="info-value">$receiptType</span>
+      </div>
+      <div class="info-line">
+        <span class="info-label">Montant :</span>
+        <span class="info-value">$receiptMontant</span>
+      </div>
+      <div class="info-line">
+        <span class="info-label">Contributeur :</span>
+        <span class="info-value">$receiptContributor</span>
+      </div>
+      <div class="info-line">
+        <span class="info-label">Type de paiement :</span>
+        <span class="info-value">$typePaiement</span>
+      </div>
+      <div class="info-line">
+        <span class="info-value">$moisConcernes</span>
+      </div>
     </div>
-    <div class="info-line">
-      <span class="info-label">Type :</span>
-      <span>$receiptType</span>
-    </div>
-    <div class="info-line">
-      <span class="info-label">Montant :</span>
-      <span>$receiptMontant</span>
-    </div>
-    <div class="info-line">
-      <span class="info-label">Contributeur :</span>
-      <span>$receiptContributor</span>
-    </div>
-  </div>
 
-  <div class="section">
-    <p>Merci de votre générosité. Conservez ce reçu pour vos archives.</p>
-  </div>
+    <div class="footer">
+      <p>Qu'Allah vous récompense</p>
+      <p>Ce reçu est généré automatiquement par la Mosquée Errahma</p>
+    </div>
 
-  <div class="footer">
-    Ce reçu est généré automatiquement par Mosquée Errahma.
+    <div class="stamp">
+      Mosquée<br>Errahma<br>Mont-de-Marsan
+    </div>
   </div>
 </body>
 </html>
