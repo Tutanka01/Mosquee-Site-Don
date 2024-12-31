@@ -1,0 +1,379 @@
+/* File: src/styles/style-index-confirmation.css */
+
+/* ----------------------------
+   Reset des Marges et Paddings
+   ---------------------------- */
+   * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ----------------------------
+   Variables CSS
+   ---------------------------- */
+:root {
+    --primary-color: #2b6cb0;
+    --secondary-color: #38a169;
+    --error-color: #e53e3e;
+    --border-radius: 5px;
+}
+
+/* ----------------------------
+   Typographie
+   ---------------------------- */
+body {
+    font-family: 'Open Sans', sans-serif;
+    background-color: #f4f6f9;
+    color: #333;
+    line-height: 1.6;
+}
+
+h1, h2, h3 {
+    margin-bottom: 15px;
+    color: #2d3748;
+}
+
+h1 {
+    font-size: 2em;
+}
+
+h2 {
+    font-size: 1.75em;
+}
+
+h3 {
+    font-size: 1.5em;
+}
+
+/* ----------------------------
+   Header
+   ---------------------------- */
+header {
+    background-color: var(--primary-color);
+    color: #fff;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+header .logo img {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 10px;
+}
+
+header h1 {
+    font-size: 1.8em;
+}
+
+/* ----------------------------
+   Container
+   ---------------------------- */
+.container {
+    max-width: 800px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+/* ----------------------------
+   Formulaire de Contribution
+   ---------------------------- */
+form {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+fieldset {
+    border: 1px solid #cbd5e0;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+legend {
+    padding: 0 10px;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #4a5568;
+    font-weight: 600;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="date"],
+input[type="month"],
+select {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #cbd5e0;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+input:disabled {
+    background-color: #e2e8f0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    color: #4a5568;
+    font-weight: 600;
+}
+
+.checkbox-label input {
+    margin-right: 10px;
+}
+
+button.primary-btn,
+button.secondary-btn {
+    background-color: var(--primary-color);
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+button.secondary-btn {
+    background-color: var(--secondary-color);
+}
+
+button.primary-btn:hover,
+button.secondary-btn:hover {
+    background-color: #1d4ed8;
+}
+
+button.secondary-btn:hover {
+    background-color: #2f855a;
+}
+
+button:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+}
+
+/* ----------------------------
+   Info et Messages d'Erreur
+   ---------------------------- */
+.info-message {
+    color: #2d3748;
+    margin-bottom: 15px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.error-message {
+    color: var(--error-color);
+    margin-top: 10px;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* ----------------------------
+   Flex Layouts
+   ---------------------------- */
+.flex-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.flex-item {
+    flex: 1 1 200px;
+}
+
+/* ----------------------------
+   Modales
+   ---------------------------- */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.5); /* Black w/ opacity */
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease-in-out;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 20px;
+    padding: 30px;
+    border: 1px solid #888;
+    width: 90%;
+    max-width: 500px;
+    border-radius: 8px;
+    position: relative;
+    transition: all 0.3s ease-in-out;
+}
+
+.modal-content h2 {
+    margin-bottom: 20px;
+    color: #2d3748;
+}
+
+.modal-content .close {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    color: #a0aec0;
+    font-size: 1.5em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.modal-content .close:hover {
+    color: #2d3748;
+}
+
+.modal-content form label {
+    display: block;
+    margin-bottom: 5px;
+    color: #4a5568;
+}
+
+.modal-content form input[type="text"],
+.modal-content form input[type="email"],
+.modal-content form input[type="number"],
+.modal-content form input[type="date"] {
+    width: 100%;
+    padding: 8px 10px;
+    margin-bottom: 15px;
+    border: 1px solid #cbd5e0;
+    border-radius: 5px;
+}
+
+.modal-content form button {
+    background-color: var(--primary-color);
+    color: #fff;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.modal-content form button:hover {
+    background-color: #1d4ed8;
+}
+
+/* ----------------------------
+   Confirmation Page
+   ---------------------------- */
+.confirmation-container {
+    max-width: 800px;
+    margin: 50px auto;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    font-family: 'Open Sans', sans-serif;
+    transition: all 0.3s ease-in-out;
+}
+
+.confirmation-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.confirmation-header h1 {
+    color: var(--primary-color);
+    margin-bottom: 5px;
+}
+
+.confirmation-header p {
+    color: #555;
+}
+
+.confirmation-details {
+    margin-bottom: 30px;
+}
+
+.confirmation-details h2 {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.detail-item {
+    margin-bottom: 15px;
+}
+
+.detail-item span {
+    font-weight: 600;
+    color: #333;
+}
+
+.button-group {
+    text-align: center;
+}
+
+.button-group a {
+    display: inline-block;
+    margin: 10px;
+    padding: 12px 25px;
+    background: var(--primary-color);
+    color: white;
+    text-decoration: none;
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    transition: background-color 0.3s;
+}
+
+.button-group a:hover {
+    background: #1D4ED8;
+}
+
+.button-group .secondary-btn {
+    background: var(--secondary-color);
+}
+
+.button-group .secondary-btn:hover {
+    background: #2f855a;
+}
+
+@media (max-width: 600px) {
+    .confirmation-container {
+        padding: 20px;
+    }
+    .button-group a {
+        width: 100%;
+        margin: 10px 0;
+    }
+}
+
+/* ----------------------------
+   Classe Hidden
+   ---------------------------- */
+.hidden {
+    display: none;
+}

@@ -1,10 +1,42 @@
 <?php
+// File: /src/fetch_adherent_history.php
+
 include 'db.php';
 
-$id = (int)($_GET['id'] ?? 0);
-$stmt = $db->prepare("SELECT type_contribution, montant, jour_paiement FROM Contributions WHERE id_adherent=? ORDER BY jour_paiement DESC");
-$stmt->execute([$id]);
-$data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+    echo json_encode(['success' => false, 'message' => 'ID invalide.']);
+    exit;
+}
 
-header('Content-Type: application/json');
-echo json_encode($data);
+$id = (int)$_GET['id'];
+
+// Récupérer les détails de l'adhérent
+$query_adherent = $db->prepare("
+    SELECT telephone
+    FROM Adherents
+    WHERE id = :id
+");
+$query_adherent->execute([':id' => $id]);
+$adherent = $query_adherent->fetch(PDO::FETCH_ASSOC);
+
+if (!$adherent) {
+    echo json_encode(['success' => false, 'message' => 'Adhérent non trouvé.']);
+    exit;
+}
+
+// Récupérer l'historique des contributions
+$query_history = $db->prepare("
+    SELECT type_contribution, montant, jour_paiement
+    FROM Contributions
+    WHERE id_adherent = :id
+    ORDER BY jour_paiement DESC
+");
+$query_history->execute([':id' => $id]);
+$history = $query_history->fetchAll(PDO::FETCH_ASSOC);
+
+echo json_encode([
+    'success' => true,
+    'telephone' => htmlspecialchars($adherent['telephone']),
+    'history' => $history
+]);
+?>

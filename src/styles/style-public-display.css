@@ -1,0 +1,308 @@
+/* File: src/styles/style-public-display.css */
+
+/* ----------------------------
+   Reset des Marges et Paddings
+   ---------------------------- */
+   * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ----------------------------
+   Variables CSS
+   ---------------------------- */
+:root {
+    --primary-color: #2b6cb0; /* Bleu principal */
+    --secondary-color: #38a169; /* Vert secondaire */
+    --error-color: #e53e3e; /* Rouge pour les erreurs */
+    --background-color: #f2f2f2; /* Gris clair pour le fond */
+    --header-background: #9bd1ff; /* Bleu clair pour l'en-tête */
+    --font-family: 'Open Sans', sans-serif;
+    --font-family-islamic: 'Amiri', serif;
+    --border-radius: 8px;
+    --text-color: #333;
+    --table-header-bg: #9bd1ff;
+    --paid-bg: #ccffcc;
+    --partial-bg: #fff0b3;
+    --unpaid-bg: #ffcccc;
+    --na-bg: #ccc;
+    --legend-bg: #f9f9f9;
+}
+
+/* ----------------------------
+   Typographie
+   ---------------------------- */
+body {
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+h1, h2, h3 {
+    margin-bottom: 15px;
+    color: #2d3748;
+}
+
+h1 {
+    font-size: 2.5em;
+    font-family: var(--font-family-islamic);
+}
+
+h2 {
+    font-size: 1.5em;
+    font-family: var(--font-family);
+}
+
+.no-data {
+    text-align: center;
+    font-size: 1.2em;
+    color: #555;
+    padding: 20px;
+}
+
+/* ----------------------------
+   Header
+   ---------------------------- */
+.header {
+    background: var(--header-background);
+    text-align: center;
+    padding: 30px 20px;
+    color: #000;
+}
+
+.header h1 {
+    margin-bottom: 10px;
+    font-size: 2.5em;
+    font-weight: bold;
+}
+
+.header h2 {
+    margin-top: 5px;
+    font-size: 1.5em;
+    font-weight: normal;
+}
+
+/* ----------------------------
+   Container
+   ---------------------------- */
+.container {
+    max-width: 1400px;
+    margin: 20px auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* ----------------------------
+   Titre du Tableau
+   ---------------------------- */
+.table-title {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 2em;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+/* ----------------------------
+   Table Container
+   ---------------------------- */
+.table-container {
+    overflow-x: auto;
+}
+
+/* ----------------------------
+   Tableau
+   ---------------------------- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1.2em;
+    min-width: 1000px; /* Assure une largeur minimale pour les grands tableaux */
+}
+
+thead th {
+    background: var(--table-header-bg);
+    color: #000;
+    text-align: center;
+    padding: 15px;
+    border: 1px solid #999;
+}
+
+tbody td {
+    text-align: center;
+    padding: 15px;
+    border: 1px solid #ccc;
+    font-weight: normal;
+}
+
+td.name-col {
+    text-align: left;
+    padding-left: 20px;
+    font-weight: bold;
+}
+
+th.name-col {
+    text-align: left;
+}
+
+tbody tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+.paid {
+    background-color: var(--paid-bg);
+    color: #000;
+    font-weight: bold;
+}
+
+.partiel {
+    background-color: var(--partial-bg);
+    color: #333;
+    font-weight: bold;
+}
+
+.nonpaye {
+    background-color: var(--unpaid-bg);
+    color: #333;
+    font-weight: bold;
+}
+
+.na {
+    background-color: var(--na-bg);
+    color: #000;
+    font-weight: bold;
+}
+
+/* ----------------------------
+   Légende
+   ---------------------------- */
+.legend {
+    margin-top: 20px;
+    font-size: 1em;
+    text-align: center;
+    background-color: var(--legend-bg);
+    padding: 10px;
+    border-radius: var(--border-radius);
+}
+
+.legend span {
+    display: inline-block;
+    margin-right: 30px;
+    padding: 5px 10px;
+    border-radius: 4px;
+}
+
+.legend .paid-label {
+    background-color: var(--paid-bg);
+}
+
+.legend .partiel-label {
+    background-color: var(--partial-bg);
+}
+
+.legend .nonpaye-label {
+    background-color: var(--unpaid-bg);
+}
+
+.legend .na-label {
+    background-color: var(--na-bg);
+}
+
+/* ----------------------------
+   Pagination
+   ---------------------------- */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.pagination-btn, .current-page {
+    margin: 0 5px;
+    padding: 10px 15px;
+    border: 1px solid var(--primary-color);
+    border-radius: var(--border-radius);
+    text-decoration: none;
+    color: var(--primary-color);
+    font-weight: bold;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.pagination-btn:hover {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+.current-page {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+/* ----------------------------
+   Footer
+   ---------------------------- */
+footer {
+    text-align: center;
+    padding: 15px;
+    background: #fff;
+    color: #777;
+    font-size: 0.9em;
+    margin-top: 30px;
+    border-top: 1px solid #ccc;
+}
+
+/* ----------------------------
+   Responsive Design
+   ---------------------------- */
+@media (max-width: 1200px) {
+    thead th, tbody td {
+        padding: 10px;
+    }
+
+    .header h1 {
+        font-size: 2em;
+    }
+
+    .header h2 {
+        font-size: 1.2em;
+    }
+
+    .table-title {
+        font-size: 1.8em;
+    }
+
+    table {
+        font-size: 1em;
+    }
+}
+
+@media (max-width: 768px) {
+    thead th, tbody td {
+        padding: 8px;
+    }
+
+    .header h1 {
+        font-size: 1.8em;
+    }
+
+    .header h2 {
+        font-size: 1em;
+    }
+
+    .table-title {
+        font-size: 1.5em;
+    }
+
+    table {
+        font-size: 0.9em;
+    }
+
+    .legend span {
+        margin-right: 15px;
+    }
+}

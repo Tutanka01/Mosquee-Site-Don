@@ -90,7 +90,7 @@ if (!empty($errors)) {
     <head>
         <meta charset="UTF-8">
         <title>Erreur - Contribution</title>
-        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="styles/style-index-confirmation.css">
         <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
         <style>
             .error-container {
@@ -101,6 +101,7 @@ if (!empty($errors)) {
                 border-radius: 8px;
                 padding: 20px;
                 box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                font-family: 'Open Sans', sans-serif;
             }
             .error-container h2 {
                 color: #cc0000;
@@ -115,11 +116,12 @@ if (!empty($errors)) {
                 display: inline-block;
                 margin-top: 20px;
                 padding: 10px 20px;
-                background: var(--primary-color);
+                background: #2b6cb0; /* Remplacement de var(--primary-color) */
                 color: white;
                 text-decoration: none;
-                border-radius: var(--border-radius);
+                border-radius: 5px; /* Remplacement de var(--border-radius) */
                 font-weight: 600;
+                transition: background-color 0.3s;
             }
             .error-container a:hover {
                 background: #1D4ED8;
@@ -129,7 +131,7 @@ if (!empty($errors)) {
     <body>
         <header>
             <div class="logo">
-                <img src="mosque_logo.png" alt="Mosquée Errahma">
+                <img src="images/mosque_logo.png" alt="Mosquée Errahma">
             </div>
             <h1>Gestion des Contributions</h1>
         </header>
@@ -444,11 +446,19 @@ $html = <<<HTML
         <span class="info-label">Type de paiement :</span>
         <span class="info-value">$typePaiement</span>
       </div>
-      <?php if ($moisConcernes): ?>
-        <div class="info-line">
-          <span class="info-value"><?= htmlspecialchars($moisConcernes) ?></span>
-        </div>
-      <?php endif; ?>
+HTML;
+
+// Inclusion conditionnelle du mois concerné
+if ($moisConcernes) {
+    $html .= <<<HTML
+      <div class="info-line">
+        <span class="info-label">Mois concerné :</span>
+        <span class="info-value">$moisConcernes</span>
+      </div>
+HTML;
+}
+
+$html .= <<<HTML
     </div>
 
     <div class="footer">
@@ -479,7 +489,15 @@ $dompdf->render();
 // Enregistrer le PDF dans /receipts (assurez-vous que ce dossier existe et est writable)
 $pdfOutput = $dompdf->output();
 $filename  = "receipt_" . time() . ".pdf";
-file_put_contents(__DIR__ . '/receipts/' . $filename, $pdfOutput);
+
+// Définir le chemin complet vers le répertoire receipts
+$receiptsDir = __DIR__ . '/receipts/';
+if (!is_dir($receiptsDir)) {
+    mkdir($receiptsDir, 0755, true); // Créer le répertoire s'il n'existe pas
+}
+
+// Enregistrer le fichier PDF
+file_put_contents($receiptsDir . $filename, $pdfOutput);
 
 // ==================================================================
 // PAGE DE CONFIRMATION HTML
@@ -500,7 +518,7 @@ $pdfLink = "receipts/" . $filename;
 <head>
     <meta charset="UTF-8">
     <title>Contribution Enregistrée</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/style-index-confirmation.css">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
     <style>
         .confirmation-container {
@@ -511,17 +529,14 @@ $pdfLink = "receipts/" . $filename;
             padding: 30px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             font-family: 'Open Sans', sans-serif;
+            transition: all 0.3s ease-in-out;
         }
         .confirmation-header {
             text-align: center;
             margin-bottom: 30px;
         }
-        .confirmation-header img {
-            width: 100px;
-            margin-bottom: 10px;
-        }
         .confirmation-header h1 {
-            color: var(--primary-color);
+            color: #2b6cb0; /* Remplacement de var(--primary-color) */
             margin-bottom: 5px;
         }
         .confirmation-header p {
@@ -531,8 +546,8 @@ $pdfLink = "receipts/" . $filename;
             margin-bottom: 30px;
         }
         .confirmation-details h2 {
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--primary-color);
+            color: #2b6cb0; /* Remplacement de var(--primary-color) */
+            border-bottom: 2px solid #2b6cb0; /* Remplacement de var(--primary-color) */
             padding-bottom: 10px;
             margin-bottom: 20px;
         }
@@ -550,10 +565,10 @@ $pdfLink = "receipts/" . $filename;
             display: inline-block;
             margin: 10px;
             padding: 12px 25px;
-            background: var(--primary-color);
+            background: #2b6cb0; /* Remplacement de var(--primary-color) */
             color: white;
             text-decoration: none;
-            border-radius: var(--border-radius);
+            border-radius: 5px; /* Remplacement de var(--border-radius) */
             font-weight: 600;
             transition: background-color 0.3s;
         }
@@ -561,10 +576,10 @@ $pdfLink = "receipts/" . $filename;
             background: #1D4ED8;
         }
         .button-group .secondary-btn {
-            background: var(--secondary-color);
+            background: #38a169; /* Remplacement de var(--secondary-color) */
         }
         .button-group .secondary-btn:hover {
-            background: #FFD700;
+            background: #2f855a;
         }
         @media (max-width: 600px) {
             .confirmation-container {
@@ -580,7 +595,7 @@ $pdfLink = "receipts/" . $filename;
 <body>
     <header>
         <div class="logo">
-            <img src="mosque_logo.png" alt="Mosquée Errahma">
+            <img src="images/mosque_logo.png" alt="Mosquée Errahma">
         </div>
         <h1>Gestion des Contributions</h1>
     </header>

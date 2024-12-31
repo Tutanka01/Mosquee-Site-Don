@@ -8,14 +8,14 @@ $currentMonth = date('Y-m');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestion des Contributions - Mosquée Errahma</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/style-index-confirmation.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
         <div class="logo">
-            <img src="mosque_logo.png" alt="Mosquée Errahma">
+            <img src="images/mosque_logo.png" alt="Mosquée Errahma">
         </div>
         <h1>Gestion des Contributions</h1>
     </header>
@@ -44,7 +44,7 @@ $currentMonth = date('Y-m');
                                 <option value="">-- Sélectionner un adhérent --</option>
                             </select>
                             <button type="button" id="addAdherentBtn" class="secondary-btn">Ajouter un adhérent</button>
-                            <p id="noAdherentMessage" class="error-message">Aucun adhérent disponible. Veuillez en ajouter un.</p>
+                            <p id="noAdherentMessage" class="error-message hidden">Aucun adhérent disponible. Veuillez en ajouter un.</p>
                         </div>
                         <div class="flex-item">
                             <label for="nom">Nom Adhérent :</label>
@@ -168,7 +168,7 @@ $currentMonth = date('Y-m');
         </div>
     </div>
 
-    <!-- JavaScript Intégré -->
+    <!-- JavaScript Amélioré -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const adherentSelect = document.getElementById('adherent_select');
@@ -188,14 +188,23 @@ $currentMonth = date('Y-m');
             const noAdherentMessage = document.getElementById('noAdherentMessage');
             const infoMessage = document.getElementById('infoMessage');
 
+            // Fonction pour ajouter la classe 'hidden' ou la retirer
+            function toggleHidden(element, shouldHide) {
+                if (shouldHide) {
+                    element.classList.add('hidden');
+                } else {
+                    element.classList.remove('hidden');
+                }
+            }
+
             // Charger tous les adhérents
             fetch('fetch_member.php')
                 .then(res => res.json())
                 .then(data => {
                     if (data.length === 0) {
-                        noAdherentMessage.style.display = 'block';
+                        noAdherentMessage.classList.remove('hidden');
                     } else {
-                        noAdherentMessage.style.display = 'none';
+                        noAdherentMessage.classList.add('hidden');
                         data.forEach(adherent => {
                             const option = document.createElement('option');
                             option.value = adherent.id;
@@ -204,7 +213,11 @@ $currentMonth = date('Y-m');
                         });
                     }
                 })
-                .catch(err => console.error(err));
+                .catch(err => {
+                    console.error('Erreur lors du chargement des adhérents:', err);
+                    noAdherentMessage.textContent = 'Erreur lors du chargement des adhérents.';
+                    noAdherentMessage.classList.remove('hidden');
+                });
 
             adherentSelect.addEventListener('change', () => {
                 const adherentID = adherentSelect.value;
@@ -221,6 +234,18 @@ $currentMonth = date('Y-m');
                             prenomField.disabled = true;
                             emailField.disabled = true;
                             telField.disabled = true;
+                            updateFormState();
+                        })
+                        .catch(err => {
+                            console.error('Erreur lors du chargement des détails de l\'adhérent:', err);
+                            nomField.value = '';
+                            prenomField.value = '';
+                            emailField.value = '';
+                            telField.value = '';
+                            nomField.disabled = false;
+                            prenomField.disabled = false;
+                            emailField.disabled = false;
+                            telField.disabled = false;
                             updateFormState();
                         });
                 } else {
@@ -282,15 +307,18 @@ $currentMonth = date('Y-m');
                         modal.classList.add('hidden');
                         newAdherentForm.reset();
                         adherentError.textContent = '';
-                        noAdherentMessage.style.display = 'none';
+                        noAdherentMessage.classList.add('hidden');
                         infoMessage.textContent = "Adhérent ajouté avec succès.";
                         setTimeout(() => {infoMessage.textContent = "";}, 3000);
                         updateFormState();
                     } else {
-                        adherentError.textContent = resp.message;
+                        adherentError.textContent = resp.message || "Erreur lors de l'ajout de l'adhérent.";
                     }
                 })
-                .catch(err => console.error(err));
+                .catch(err => {
+                    console.error('Erreur lors de l\'ajout de l\'adhérent:', err);
+                    adherentError.textContent = "Erreur lors de l'ajout de l'adhérent.";
+                });
             });
 
             function updateFormState() {
@@ -303,20 +331,20 @@ $currentMonth = date('Y-m');
                     anonymeCheck.disabled = true;
                     adherentSelect.disabled = false;
                     addAdherentBtn.disabled = false;
-                    nonAdherentFields.classList.add('hidden');
+                    toggleHidden(nonAdherentFields, true);
                 } else {
                     anonymeCheck.disabled = false;
                     if (isAnonyme) {
                         adherentSelect.disabled = true;
                         addAdherentBtn.disabled = true;
-                        nonAdherentFields.classList.add('hidden');
+                        toggleHidden(nonAdherentFields, true);
                     } else {
                         adherentSelect.disabled = false;
                         addAdherentBtn.disabled = false;
                         if (adherentID) {
-                            nonAdherentFields.classList.add('hidden');
+                            toggleHidden(nonAdherentFields, true);
                         } else {
-                            nonAdherentFields.classList.remove('hidden');
+                            toggleHidden(nonAdherentFields, false);
                         }
                     }
                 }

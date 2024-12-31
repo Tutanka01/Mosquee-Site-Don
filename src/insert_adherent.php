@@ -1,5 +1,7 @@
 <?php
-// /src/insert_adherent.php
+// File: /src/insert_adherent.php
+header('Content-Type: application/json');
+
 include 'db.php';
 
 $nom = $_POST['nom'] ?? '';
@@ -45,3 +47,4 @@ try {
 } catch (PDOException $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
+?>

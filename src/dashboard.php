@@ -5,8 +5,15 @@ include 'db.php';
 // Récupération de l'année en cours pour les stats
 $currentYear = date('Y');
 
+// Définir les options d'année pour les filtres (de 10 ans en arrière à 5 ans en avant)
+$yearOptions = range($currentYear + 5, $currentYear - 10, -1);
+
+// Récupération des filtres depuis l'URL
+$filter_type = isset($_GET['filter_type']) ? $_GET['filter_type'] : '';
+$filter_year = isset($_GET['filter_year']) ? $_GET['filter_year'] : $currentYear;
+
 // Récupération des cotisations
-$query_cotisations = $db->query("
+$query_cotisations = $db->prepare("
     SELECT 
         CASE 
             WHEN C.id_adherent IS NOT NULL AND A.anonyme = 1 THEN 'Anonyme'
@@ -19,10 +26,11 @@ $query_cotisations = $db->query("
     LEFT JOIN Adherents A ON C.id_adherent = A.id
     WHERE C.type_contribution = 'cotisation'
 ");
+$query_cotisations->execute();
 $data_cotisations = $query_cotisations->fetchAll(PDO::FETCH_ASSOC);
 
 // Récupération des dons
-$query_dons = $db->query("
+$query_dons = $db->prepare("
     SELECT 
         CASE 
             WHEN C.anonyme = 1 THEN 'Anonyme'
@@ -41,10 +49,11 @@ $query_dons = $db->query("
     LEFT JOIN Adherents A ON C.id_adherent = A.id
     WHERE C.type_contribution = 'don'
 ");
+$query_dons->execute();
 $data_dons = $query_dons->fetchAll(PDO::FETCH_ASSOC);
 
 // Récupération des projets
-$query_projets = $db->query("
+$query_projets = $db->prepare("
     SELECT 
         CASE 
             WHEN C.anonyme = 1 THEN 'Anonyme'
@@ -63,21 +72,24 @@ $query_projets = $db->query("
     LEFT JOIN Adherents A ON C.id_adherent = A.id
     WHERE C.type_contribution = 'projet'
 ");
+$query_projets->execute();
 $data_projets = $query_projets->fetchAll(PDO::FETCH_ASSOC);
 
 // Pour les graphiques et stats globales
-$query_month = $db->query("
+$query_month = $db->prepare("
     SELECT strftime('%Y-%m', jour_paiement) AS mois, SUM(montant) AS total 
     FROM Contributions 
     GROUP BY mois
 ");
+$query_month->execute();
 $data_month = $query_month->fetchAll(PDO::FETCH_ASSOC);
 
-$query_type = $db->query("
+$query_type = $db->prepare("
     SELECT type_contribution, SUM(montant) AS total 
     FROM Contributions 
     GROUP BY type_contribution
 ");
+$query_type->execute();
 $data_type = $query_type->fetchAll(PDO::FETCH_ASSOC);
 
 // Stats supplémentaires
@@ -86,8 +98,9 @@ $stmt_total_year = $db->prepare("
     FROM Contributions 
     WHERE strftime('%Y', jour_paiement) = ?
 ");
-$stmt_total_year->execute([$currentYear]);
-$total_year = (float)$stmt_total_year->fetch(PDO::FETCH_ASSOC)['total_year'];
+$stmt_total_year->execute([$filter_year]);
+$result_total_year = $stmt_total_year->fetch(PDO::FETCH_ASSOC);
+$total_year = $result_total_year && $result_total_year['total_year'] !== null ? (float)$result_total_year['total_year'] : 0.0;
 
 $stmt_month_avg = $db->prepare("
     SELECT AVG(mensuel) AS avg_month 
@@ -98,8 +111,9 @@ $stmt_month_avg = $db->prepare("
         GROUP BY mois
     )
 ");
-$stmt_month_avg->execute([$currentYear]);
-$avg_month = (float)$stmt_month_avg->fetch(PDO::FETCH_ASSOC)['avg_month'];
+$stmt_month_avg->execute([$filter_year]);
+$result_avg_month = $stmt_month_avg->fetch(PDO::FETCH_ASSOC);
+$avg_month = $result_avg_month && $result_avg_month['avg_month'] !== null ? (float)$result_avg_month['avg_month'] : 0.0;
 
 // Top donateurs
 $stmt_top_donors = $db->prepare("
@@ -123,22 +137,25 @@ $stmt_top_donors = $db->prepare("
     ORDER BY total_donne DESC
     LIMIT 5
 ");
-$stmt_top_donors->execute([$currentYear]);
+$stmt_top_donors->execute([$filter_year]);
 $top_donors = $stmt_top_donors->fetchAll(PDO::FETCH_ASSOC);
 
 // Nombre total d'adhérents
-$count_adherents = (int)$db->query("
+$stmt_count_adherents = $db->prepare("
     SELECT COUNT(*) 
     FROM Adherents 
     WHERE anonyme = 0
-")->fetchColumn();
+");
+$stmt_count_adherents->execute();
+$count_adherents = (int)$stmt_count_adherents->fetchColumn();
 
 // Nombre de chaque type
-$query_type_count = $db->query("
+$query_type_count = $db->prepare("
     SELECT type_contribution, COUNT(*) AS count_type 
     FROM Contributions 
     GROUP BY type_contribution
 ");
+$query_type_count->execute();
 $type_counts = $query_type_count->fetchAll(PDO::FETCH_ASSOC);
 
 $cot_count = 0;
@@ -156,10 +173,10 @@ SELECT
     (SELECT SUM(montant) FROM Contributions WHERE type_contribution='don' AND strftime('%Y', jour_paiement)=?) as total_don,
     (SELECT SUM(montant) FROM Contributions WHERE type_contribution='cotisation' AND strftime('%Y', jour_paiement)=?) as total_cot
 ");
-$stmt_ratio->execute([$currentYear, $currentYear]);
+$stmt_ratio->execute([$filter_year, $filter_year]);
 $ratio_data = $stmt_ratio->fetch(PDO::FETCH_ASSOC);
-$total_don_year = (float)$ratio_data['total_don'];
-$total_cot_year = (float)$ratio_data['total_cot'];
+$total_don_year = isset($ratio_data['total_don']) && $ratio_data['total_don'] !== null ? (float)$ratio_data['total_don'] : 0.0;
+$total_cot_year = isset($ratio_data['total_cot']) && $ratio_data['total_cot'] !== null ? (float)$ratio_data['total_cot'] : 0.0;
 $ratio_don_cot = ($total_cot_year > 0) 
     ? round(($total_don_year / $total_cot_year)*100, 2) 
     : 0;
@@ -168,10 +185,6 @@ $ratio_don_cot = ($total_cot_year > 0)
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $items_per_page = 10;
 $offset = ($page - 1) * $items_per_page;
-
-// Gestion des filtres pour la liste des contributions
-$filter_type = isset($_GET['filter_type']) ? $_GET['filter_type'] : '';
-$filter_year = isset($_GET['filter_year']) ? $_GET['filter_year'] : $currentYear;
 
 // Préparer la requête paginée avec filtres
 $query_paginated = $db->prepare("
@@ -230,15 +243,17 @@ $total_pages = ceil($total / $items_per_page);
 
 // Gestion du tableau des cotisations mensuelles
 // Récupération de tous les adhérents (non anonymes)
-$adherents = $db->query("
+$adherents = $db->prepare("
     SELECT id, nom, prenom, monthly_fee, start_date, end_date 
     FROM Adherents 
     WHERE anonyme = 0
     ORDER BY nom, prenom
-")->fetchAll(PDO::FETCH_ASSOC);
+");
+$adherents->execute();
+$adherents = $adherents->fetchAll(PDO::FETCH_ASSOC);
 
 // Labels pour les mois
-$mois_labels = ["Janv","Fevr","Mars","Avril","Mai","Juin","Juill","Aout","Sept","Octo","Nove","Dece"];
+$mois_labels = ["Janv","Févr","Mars","Avril","Mai","Juin","Juil","Août","Sept","Octo","Nove","Dece"];
 
 // Récupération des cotisations mensuelles pour chaque adhérent
 $cotisations_mensuelles = [];
@@ -264,7 +279,7 @@ foreach ($adherents as $ad) {
 
     // Récupération des dates d'adhésion
     $start = $ad['start_date'] ? new DateTime($ad['start_date']) : null;
-    $end   = $ad['end_date']   ? new DateTime($ad['end_date']) : null;
+    $end   = $ad['end_date']   ? new DateTime($ad['end_date'])   : null;
 
     $cotisations_mensuelles[] = [
         'nom_complet' => $ad['nom'] . ' ' . $ad['prenom'],
@@ -304,289 +319,18 @@ foreach ($adherents as $ad) {
 <head>
     <meta charset="UTF-8">
     <title>Dashboard Administrateur - Mosquée Errahma</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/style-dashboard.css">
     <!-- Chart.js pour les graphiques -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
     <!-- Font Awesome pour les icônes -->
     <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-    <style>
-        /* Styles spécifiques au dashboard */
-        .tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 20px;
-            justify-content: center;
-        }
-
-        .tabs button {
-            flex: 1 1 150px;
-            padding: 10px 15px;
-            background: var(--secondary-color);
-            border: none;
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-weight: 600;
-            transition: background-color var(--transition-speed);
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .tabs button i {
-            margin-right: 8px;
-        }
-
-        .tabs button:hover,
-        .tabs button.active {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Statistiques */
-        .stats-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin-bottom: 30px;
-            justify-content: space-around;
-        }
-
-        .stat-card {
-            flex: 1 1 200px;
-            background: #f9fafb;
-            padding: 20px;
-            border-radius: var(--border-radius);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
-        .stat-card h3 {
-            margin-bottom: 10px;
-            font-size: 1.2em;
-        }
-
-        .stat-card p {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: var(--text-color);
-        }
-
-        /* Tables */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-
-        table th, table td {
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-
-        table th {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        table tr:nth-child(even) {
-            background: #f9f9f9;
-        }
-
-        table tr:hover {
-            background: #f1f1f1;
-        }
-
-        /* Filtres */
-        .filter-group, .search-group, .year-selector, .membre-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 15px;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .filter-group label, .year-selector label {
-            margin-right: 5px;
-            font-weight: 600;
-        }
-
-        /* Pagination */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-
-        .pagination a {
-            padding: 8px 12px;
-            background: var(--secondary-color);
-            color: white;
-            text-decoration: none;
-            border-radius: var(--border-radius);
-            transition: background-color var(--transition-speed);
-        }
-
-        .pagination a.active,
-        .pagination a:hover {
-            background: var(--primary-color);
-        }
-
-        /* Modales */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background: var(--modal-background);
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background: var(--card-background);
-            margin: auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 90%;
-            max-width: 500px;
-            border-radius: var(--border-radius);
-            position: relative;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateY(-20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .close {
-            color: var(--error-color);
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close:hover,
-        .close:focus {
-            color: #ff4d4d;
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        /* Boutons */
-        .button-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 20px;
-        }
-
-        .button-group a {
-            padding: 10px 20px;
-            background: var(--primary-color);
-            color: white;
-            text-decoration: none;
-            border-radius: var(--border-radius);
-            font-weight: 600;
-            transition: background-color var(--transition-speed);
-        }
-
-        .button-group a:hover {
-            background: #1D4ED8;
-        }
-
-        /* Recherche Adhérent */
-        #adherentResults table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        #adherentResults th, #adherentResults td {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-
-        #adherentResults th {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        #adherentResults tr:nth-child(even) {
-            background: #f9f9f9;
-        }
-
-        #adherentResults tr:hover {
-            background: #f1f1f1;
-        }
-
-        /* Cotisations Mensuelles Table */
-        .cotisations-table th, .cotisations-table td {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            text-align: center;
-        }
-
-        .cotisations-table th {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .cotisations-table td {
-            font-weight: bold;
-        }
-
-        /* Responsive Adjustments */
-        @media (max-width: 768px) {
-            .tabs {
-                flex-direction: column;
-            }
-
-            .tabs button {
-                flex: 1 1 100%;
-            }
-
-            .filter-group, .search-group, .year-selector, .membre-actions {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .pagination a {
-                padding: 8px;
-            }
-        }
-    </style>
 </head>
 <body>
 <header>
     <div class="logo">
-        <img src="mosque_logo.png" alt="Mosquée Errahma">
+        <img src="../images/mosque_logo.png" alt="Mosquée Errahma">
     </div>
     <h1>Dashboard Administrateur</h1>
 </header>
@@ -606,7 +350,7 @@ foreach ($adherents as $ad) {
 
         <!-- Onglet : Statistiques Globales -->
         <div id="stats" class="tab-content active">
-            <h2>Statistiques Globales - Année <?= htmlspecialchars($currentYear) ?></h2>
+            <h2>Statistiques Globales - Année <?= htmlspecialchars($filter_year) ?></h2>
             <div class="stats-grid">
                 <div class="stat-card">
                     <h3>Total des Contributions</h3>
@@ -626,7 +370,7 @@ foreach ($adherents as $ad) {
                 </div>
             </div>
 
-            <h3>Top 5 Donateurs (Année <?= htmlspecialchars($currentYear) ?>)</h3>
+            <h3>Top 5 Donateurs (Année <?= htmlspecialchars($filter_year) ?>)</h3>
             <table>
                 <thead>
                     <tr>
@@ -793,9 +537,10 @@ foreach ($adherents as $ad) {
             <form method="GET" action="dashboard.php" class="year-selector">
                 <!-- pour rester sur le bon onglet après validation -->
                 <input type="hidden" name="tab" value="cotisations_mensuelles">
+                <input type="hidden" name="filter_type" value="<?= htmlspecialchars($filter_type) ?>">
 
-                <label for="cot_year">Choisir une année :</label>
-                <select name="cot_year" id="cot_year">
+                <label for="filter_year">Choisir une année :</label>
+                <select name="filter_year" id="cot_year">
                     <?php foreach ($yearOptions as $y): ?>
                         <option value="<?= $y ?>" <?= ($y == $filter_year ? 'selected' : '') ?>>
                             <?= $y ?>
@@ -822,8 +567,21 @@ foreach ($adherents as $ad) {
                     <tr>
                         <td><?= $num++ ?></td>
                         <td><?= htmlspecialchars($ad['nom_complet']) ?></td>
-                        <?php foreach ($ad['cotisations'] as $cot): ?>
-                            <td><?= htmlspecialchars($cot) ?></td>
+                        <?php foreach ($ad['cotisations'] as $cot): 
+                            // Déterminer la classe CSS en fonction de la valeur
+                            if ($cot === 'Payé') {
+                                $class = 'paid';
+                            } elseif ($cot === 'N/A') {
+                                $class = 'nonpaye';
+                            } elseif (strpos($cot, '-') === 0) {
+                                $class = 'partiel';
+                            } elseif ($cot === '0€') {
+                                $class = 'nonpaye';
+                            } else {
+                                $class = '';
+                            }
+                        ?>
+                            <td class="<?= $class ?>"><?= htmlspecialchars($cot) ?></td>
                         <?php endforeach; ?>
                     </tr>
                     <?php endforeach; ?>
@@ -904,7 +662,7 @@ foreach ($adherents as $ad) {
         <p>Êtes-vous sûr de vouloir supprimer cet adhérent ? Cette action est irréversible.</p>
         <input type="hidden" id="delete_id">
         <button id="confirmDeleteBtn"><i class="fas fa-trash-alt"></i> Supprimer</button>
-        <button id="cancelDeleteBtn" style="background: #ccc; color: #333;"><i class="fas fa-times"></i> Annuler</button>
+        <button id="cancelDeleteBtn" class="cancel-btn"><i class="fas fa-times"></i> Annuler</button>
         <div id="deleteError" class="error-message"></div>
     </div>
 </div>
@@ -1101,9 +859,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             const id = row.getAttribute('data-id');
                             fetch(`fetch_adherent_history.php?id=${id}`)
                                 .then(response => response.json())
-                                .then(hist => {
+                                .then(resp => {
                                     adherentHistory.innerHTML = '<h4>Historique de l\'adhérent</h4>';
-                                    if (hist.length === 0) {
+                                    if (!resp.success) {
+                                        adherentHistory.innerHTML += `<p>${resp.message}</p>`;
+                                        return;
+                                    }
+
+                                    // Afficher le téléphone
+                                    adherentHistory.innerHTML += `<p><strong>Téléphone :</strong> ${resp.telephone}</p>`;
+
+                                    if (resp.history.length === 0) {
                                         adherentHistory.innerHTML += '<p>Aucune contribution.</p>';
                                     } else {
                                         const histTable = document.createElement('table');
@@ -1116,10 +882,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                ${hist.map(c => `
+                                                ${resp.history.map(c => `
                                                     <tr>
                                                         <td>${c.type_contribution}</td>
-                                                        <td>${c.montant.toFixed(2)}</td>
+                                                        <td>${parseFloat(c.montant).toFixed(2)}</td>
                                                         <td>${c.jour_paiement}</td>
                                                     </tr>
                                                 `).join('')}
@@ -1221,18 +987,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // Récupérer les détails de l'adhérent
         fetch(`fetch_adherent_details.php?id=${id}`)
             .then(response => response.json())
-            .then(ad => {
-                membre_id.value = ad.id;
-                membre_nom.value = ad.nom;
-                membre_prenom.value = ad.prenom;
-                membre_email.value = ad.email;
-                membre_telephone.value = ad.telephone;
-                membre_monthly_fee.value = ad.monthly_fee ? ad.monthly_fee.toFixed(2) : '';
-                membre_start_date.value = ad.start_date;
-                membre_end_date.value = ad.end_date;
-                membreModalTitle.textContent = "Modifier l'adhérent";
-                membreError.textContent = '';
-                membreModal.style.display = 'flex';
+            .then(resp => {
+                if (resp.success) {
+                    const ad = resp.data;
+                    membre_id.value = ad.id;
+                    membre_nom.value = ad.nom;
+                    membre_prenom.value = ad.prenom;
+                    membre_email.value = ad.email;
+                    membre_telephone.value = ad.telephone;
+                    membre_monthly_fee.value = ad.monthly_fee ? ad.monthly_fee.toFixed(2) : '';
+                    membre_start_date.value = ad.start_date;
+                    membre_end_date.value = ad.end_date;
+                    membreModalTitle.textContent = "Modifier l'adhérent";
+                    membreError.textContent = '';
+                    membreModal.style.display = 'flex';
+                } else {
+                    alert(resp.message);
+                }
             })
             .catch(err => {
                 console.error(err);
@@ -1309,12 +1080,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const formData = new FormData();
+        formData.append('id', id);
+
         fetch('delete_adherent.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ id: id })
+            body: formData
         })
         .then(response => response.json())
         .then(resp => {
