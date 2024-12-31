@@ -1,4 +1,6 @@
 <?php
+// File: /src/index.php
+
 include 'db.php';
 $currentMonth = date('Y-m');
 ?>
@@ -262,10 +264,12 @@ $currentMonth = date('Y-m');
             });
 
             addAdherentBtn.addEventListener('click', () => {
+                console.log('Bouton "Ajouter un adhérent" cliqué.');
                 modal.classList.remove('hidden');
             });
 
             closeModal.addEventListener('click', () => {
+                console.log('Modal fermé.');
                 modal.classList.add('hidden');
                 newAdherentForm.reset();
                 adherentError.textContent = '';
