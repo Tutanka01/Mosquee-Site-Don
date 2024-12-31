@@ -1,13 +1,10 @@
 <?php
-// /src/insert.php
+// insert.php
 
 include 'db.php';
 
-// 1) Inclure Dompdf (sans Composer), en tenant compte de votre arborescence
-//    On remonte d'un dossier avec ..
-//    "libs/dompdf/autoload.inc.php" doit exister
+// Inclure Dompdf
 require_once __DIR__ . '/libs/dompdf/autoload.inc.php';
-
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
@@ -38,11 +35,13 @@ if ($type_contribution === 'cotisation' && $id_adherent) {
 }
 
 // Vérifications basiques
+$errors = [];
+
 if ($type_paiement === '') {
-    die("Erreur : le type de paiement est obligatoire.");
+    $errors[] = "Le type de paiement est obligatoire.";
 }
 if ($montant <= 0) {
-    die("Erreur : le montant doit être supérieur à 0.");
+    $errors[] = "Le montant doit être supérieur à 0.";
 }
 
 // ==================================================================
@@ -53,10 +52,10 @@ $heure_paiement = date('H:i:s');
 
 if ($type_contribution === 'cotisation') {
     if ($anonyme == 1) {
-        die("Erreur : une cotisation ne peut pas être anonyme.");
+        $errors[] = "Une cotisation ne peut pas être anonyme.";
     }
     if (!$id_adherent) {
-        die("Erreur : aucun adhérent sélectionné pour la cotisation.");
+        $errors[] = "Aucun adhérent sélectionné pour la cotisation.";
     }
     // Annuller tout champ donateur
     $nom_donateur = $prenom_donateur = $email_donateur = $telephone_donateur = null;
@@ -74,13 +73,82 @@ elseif ($type_contribution === 'don' || $type_contribution === 'projet') {
         } else {
             // Don/Projet non adhérent => nom & prénom obligatoires
             if (!$nom_donateur || !$prenom_donateur) {
-                die("Erreur : nom et prénom du donateur non-adhérent sont obligatoires.");
+                $errors[] = "Nom et prénom du donateur non-adhérent sont obligatoires.";
             }
         }
     }
 }
 else {
-    die("Type de contribution invalide.");
+    $errors[] = "Type de contribution invalide.";
+}
+
+// Si des erreurs existent, afficher la page d'erreur
+if (!empty($errors)) {
+    ?>
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>Erreur - Contribution</title>
+        <link rel="stylesheet" href="style.css">
+        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+        <style>
+            .error-container {
+                max-width: 600px;
+                margin: 50px auto;
+                background: #ffe6e6;
+                border: 1px solid #ff4d4d;
+                border-radius: 8px;
+                padding: 20px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+            .error-container h2 {
+                color: #cc0000;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            .error-container ul {
+                list-style-type: disc;
+                padding-left: 20px;
+            }
+            .error-container a {
+                display: inline-block;
+                margin-top: 20px;
+                padding: 10px 20px;
+                background: var(--primary-color);
+                color: white;
+                text-decoration: none;
+                border-radius: var(--border-radius);
+                font-weight: 600;
+            }
+            .error-container a:hover {
+                background: #1D4ED8;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="logo">
+                <img src="mosque_logo.png" alt="Mosquée Errahma">
+            </div>
+            <h1>Gestion des Contributions</h1>
+        </header>
+        <div class="error-container">
+            <h2>Erreur lors de l'enregistrement</h2>
+            <ul>
+                <?php foreach ($errors as $error): ?>
+                    <li><?= htmlspecialchars($error) ?></li>
+                <?php endforeach; ?>
+            </ul>
+            <a href="index.php">Retour au formulaire</a>
+        </div>
+        <footer>
+            © 2024 Mosquée Errahma
+        </footer>
+    </body>
+    </html>
+    <?php
+    exit;
 }
 
 // ==================================================================
@@ -108,7 +176,7 @@ $stmt->execute([
     $telephone_donateur
 ]);
 
-// ID de la nouvelle contribution (si vous voulez le réutiliser)
+// ID de la nouvelle contribution
 $contribID = $db->lastInsertId();
 
 // ==================================================================
@@ -182,50 +250,35 @@ if ($type_contribution === 'cotisation' && $id_adherent) {
 }
 
 // ==================================================================
-// 3) GÉNÉRATION DU PDF VIA DOMPDF (ex: on l’enregistre et on propose un lien)
+// 3) GÉNÉRATION DU PDF VIA DOMPDF
 // ==================================================================
 
 // Préparer les données du reçu
-$receiptType        = htmlspecialchars($type_contribution);
+$receiptType        = htmlspecialchars(ucfirst($type_contribution));
 $receiptMontant     = number_format($montant, 2).' €';
 $receiptDate        = date('d/m/Y H:i');
 
-// On initialise $receiptContributor à "Anonyme" par défaut
+// Initialiser le contributeur
 $receiptContributor = "Anonyme";
 
-// Si c'est une cotisation ET l'id_adherent est défini
+// Déterminer le contributeur
 if ($type_contribution === 'cotisation' && $id_adherent) {
-    // On récupère les infos de l'adhérent
-    $sth = $db->prepare("SELECT nom, prenom FROM Adherents WHERE id=?");
-    $sth->execute([$id_adherent]);
-    $adInfo = $sth->fetch(PDO::FETCH_ASSOC);
-
-    // Si l'adhérent existe, on utilise son nom et prénom
     if ($adInfo) {
-        $receiptContributor = $adInfo['nom'].' '.$adInfo['prenom'];
+        $receiptContributor = htmlspecialchars($adInfo['nom'].' '.$adInfo['prenom']);
     } else {
-        // Si l'adhérent n'existe pas (ne devrait pas arriver en théorie), on affiche "ID #<id>"
         $receiptContributor = "ID #".$id_adherent;
     }
 }
-// Si c'est un don ou un projet ET pas anonyme
 elseif (($type_contribution === 'don' || $type_contribution === 'projet') && !$anonyme) {
-    // Si id_adherent est défini, on récupère les infos de l'adhérent
     if ($id_adherent) {
-        $sth = $db->prepare("SELECT nom, prenom FROM Adherents WHERE id=?");
-        $sth->execute([$id_adherent]);
-        $adInfo = $sth->fetch(PDO::FETCH_ASSOC);
-
-        // Si l'adhérent existe, on utilise son nom et prénom
         if ($adInfo) {
-            $receiptContributor = $adInfo['nom'].' '.$adInfo['prenom'];
+            $receiptContributor = htmlspecialchars($adInfo['nom'].' '.$adInfo['prenom']);
         } else {
-            // Si l'adhérent n'existe pas (ne devrait pas arriver en théorie), on affiche "ID #<id>"
             $receiptContributor = "ID #".$id_adherent;
         }
     } else {
-        // Sinon, on utilise les noms et prénoms du donateur
-        $receiptContributor = trim(($nom_donateur ?? '').' '.($prenom_donateur ?? ''));
+        $contribName = trim(($nom_donateur ?? '').' '.($prenom_donateur ?? ''));
+        $receiptContributor = htmlspecialchars($contribName ?: "Non-adhérent");
     }
 }
 
@@ -248,14 +301,17 @@ switch ($type_paiement) {
 // Mois concernés (pour cotisation)
 $moisConcernes = "";
 if ($type_contribution === 'cotisation' && $mois) {
-    $moisConcernes = "Mois concerné : " . $mois;
+    $dateMois = DateTime::createFromFormat('Y-m', $mois);
+    if ($dateMois) {
+        $moisConcernes = "Mois concerné : " . $dateMois->format('F Y');
+    }
 }
 
-// On construit un HTML stylé
+// Informations de la mosquée
 $mosqueeName     = "Mosquée Errahma - Mont-de-Marsan";
 $adresseMosquee  = "262 Av. du Capitaine Michel Lespine, 40000 Mont-de-Marsan";
 
-// HTML
+// HTML pour le PDF
 $html = <<<HTML
 <!DOCTYPE html>
 <html lang="fr">
@@ -267,7 +323,7 @@ $html = <<<HTML
       margin: 0;
     }
     body {
-      font-family: DejaVu Sans, Arial, sans-serif;
+      font-family: 'Open Sans', Arial, sans-serif;
       margin: 0;
       padding: 30px;
       color: #2C3E50;
@@ -280,7 +336,7 @@ $html = <<<HTML
       right: 0;
       bottom: 0;
       border: 15px solid transparent;
-      border-image: repeating-linear-gradient(45deg, #1B4F72, #1B4F72 10px, transparent 10px, transparent 20px) 15;
+      border-image: linear-gradient(45deg, #2563EB, #FFD700) 15;
       z-index: -1;
     }
     .content {
@@ -292,16 +348,11 @@ $html = <<<HTML
       margin-bottom: 40px;
       position: relative;
     }
-    .mosque-icon {
-      width: 60px;
-      height: 60px;
-      margin-bottom: 10px;
-    }
     .header h1 {
       margin: 0;
       font-size: 28px;
-      color: #1B4F72;
-      font-weight: bold;
+      color: #2563EB;
+      font-weight: 600;
     }
     .header p {
       margin: 5px 0;
@@ -316,10 +367,10 @@ $html = <<<HTML
     }
     .title {
       font-size: 20px;
-      color: #1B4F72;
+      color: #2563EB;
       margin-bottom: 20px;
       text-align: center;
-      border-bottom: 2px solid #1B4F72;
+      border-bottom: 2px solid #2563EB;
       padding-bottom: 10px;
     }
     .info-line {
@@ -328,12 +379,13 @@ $html = <<<HTML
       align-items: center;
     }
     .info-label {
-      font-weight: bold;
+      font-weight: 600;
       width: 180px;
       color: #34495E;
     }
     .info-value {
       flex: 1;
+      color: #2C3E50;
     }
     .footer {
       margin-top: 40px;
@@ -349,14 +401,14 @@ $html = <<<HTML
       bottom: 40px;
       width: 120px;
       height: 120px;
-      border: 2px solid #1B4F72;
+      border: 2px solid #2563EB;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
-      color: #1B4F72;
-      font-weight: bold;
+      color: #2563EB;
+      font-weight: 600;
       transform: rotate(-15deg);
       opacity: 0.8;
     }
@@ -366,11 +418,6 @@ $html = <<<HTML
   <div class="border-pattern"></div>
   <div class="content">
     <div class="header">
-      <svg class="mosque-icon" viewBox="0 0 100 100">
-        <path d="M50 10 L80 40 L80 90 L20 90 L20 40 Z" fill="none" stroke="#1B4F72" stroke-width="3"/>
-        <path d="M45 90 L45 70 L55 70 L55 90" fill="none" stroke="#1B4F72" stroke-width="3"/>
-        <circle cx="50" cy="30" r="10" fill="none" stroke="#1B4F72" stroke-width="3"/>
-      </svg>
       <h1>Mosquée Errahma</h1>
       <p>262 Av. du Capitaine Michel Lespine, 40000 Mont-de-Marsan</p>
     </div>
@@ -397,9 +444,11 @@ $html = <<<HTML
         <span class="info-label">Type de paiement :</span>
         <span class="info-value">$typePaiement</span>
       </div>
-      <div class="info-line">
-        <span class="info-value">$moisConcernes</span>
-      </div>
+      <?php if ($moisConcernes): ?>
+        <div class="info-line">
+          <span class="info-value"><?= htmlspecialchars($moisConcernes) ?></span>
+        </div>
+      <?php endif; ?>
     </div>
 
     <div class="footer">
@@ -415,122 +464,163 @@ $html = <<<HTML
 </html>
 HTML;
 
+// ==================================================================
+// GÉNÉRATION DU PDF VIA DOMPDF
+// ==================================================================
+
 // Configurer Dompdf
 $options = new Options();
-$options->set('isRemoteEnabled', false);
+$options->set('isRemoteEnabled', true); // Pour charger les polices via Google Fonts
 $dompdf = new Dompdf($options);
 $dompdf->loadHtml($html);
 $dompdf->setPaper('A5', 'portrait');
 $dompdf->render();
 
-// Enregistrer le PDF dans /receipts (assurez-vous que ce dossier existe)
+// Enregistrer le PDF dans /receipts (assurez-vous que ce dossier existe et est writable)
 $pdfOutput = $dompdf->output();
 $filename  = "receipt_" . time() . ".pdf";
 file_put_contents(__DIR__ . '/receipts/' . $filename, $pdfOutput);
 
-// OU si vous voulez forcer direct le téléchargement + exit :
-// $dompdf->stream("Recu_MosqueeErrahma.pdf", ["Attachment" => true]);
-// exit;
-
 // ==================================================================
 // PAGE DE CONFIRMATION HTML
 // ==================================================================
+
+// Préparer les détails pour la confirmation
+$confirmationType = ucfirst($type_contribution);
+$confirmationMontant = number_format($montant, 2) . ' €';
+$confirmationPayment = ucfirst($typePaiement);
+$confirmationContributor = $receiptContributor;
+$confirmationDate = $receiptDate;
+
+// Générer le lien relatif vers le PDF
+$pdfLink = "receipts/" . $filename;
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Contribution Enregistrée</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f4f9;
-      margin:0; 
-      padding:0;
-    }
-    .container {
-      max-width: 600px;
-      margin: 50px auto;
-      background: #fff;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    h1 {
-      text-align: center;
-      color: #007BFF;
-      margin-top: 0;
-    }
-    .recap {
-      margin: 20px 0;
-      font-size: 1.1em;
-      line-height: 1.4em;
-      background: #f9f9f9;
-      border: 1px solid #ddd;
-      padding: 15px;
-      border-radius: 5px;
-    }
-    .recap strong {
-      color: #333;
-    }
-    .btn-group {
-      text-align: center;
-      margin-top: 20px;
-    }
-    a.button {
-      display: inline-block;
-      margin: 5px;
-      padding: 10px 20px;
-      background: #007BFF;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 5px;
-      font-weight: bold;
-    }
-    a.button:hover {
-      background: #0056b3;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Contribution Enregistrée</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        .confirmation-container {
+            max-width: 800px;
+            margin: 50px auto;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-family: 'Open Sans', sans-serif;
+        }
+        .confirmation-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .confirmation-header img {
+            width: 100px;
+            margin-bottom: 10px;
+        }
+        .confirmation-header h1 {
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        .confirmation-header p {
+            color: #555;
+        }
+        .confirmation-details {
+            margin-bottom: 30px;
+        }
+        .confirmation-details h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .detail-item {
+            margin-bottom: 15px;
+        }
+        .detail-item span {
+            font-weight: 600;
+            color: #333;
+        }
+        .button-group {
+            text-align: center;
+        }
+        .button-group a {
+            display: inline-block;
+            margin: 10px;
+            padding: 12px 25px;
+            background: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: var(--border-radius);
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        .button-group a:hover {
+            background: #1D4ED8;
+        }
+        .button-group .secondary-btn {
+            background: var(--secondary-color);
+        }
+        .button-group .secondary-btn:hover {
+            background: #FFD700;
+        }
+        @media (max-width: 600px) {
+            .confirmation-container {
+                padding: 20px;
+            }
+            .button-group a {
+                width: 100%;
+                margin: 10px 0;
+            }
+        }
+    </style>
 </head>
 <body>
-
-<div class="container">
-  <h1>Contribution Enregistrée</h1>
-
-  <div class="recap">
-    <p>La contribution suivante a été ajoutée avec succès :</p>
-    <ul>
-      <li><strong>Type :</strong> <?= htmlspecialchars($type_contribution) ?></li>
-      <li><strong>Montant :</strong> <?= number_format($montant, 2) ?> €</li>
-      <li><strong>Mode de paiement :</strong> <?= htmlspecialchars($type_paiement) ?></li>
-
-      <?php if ($type_contribution === 'cotisation' && $id_adherent): ?>
-        <li><strong>Adhérent :</strong>
-          <?= htmlspecialchars($adherentFullName ?: "ID #".$id_adherent) ?>
-        </li>
-      <?php elseif (($type_contribution==='don' || $type_contribution==='projet') && !$anonyme): ?>
-        <li><strong>Donateur :</strong> 
-          <?= htmlspecialchars(trim(($nom_donateur ?? '').' '.($prenom_donateur ?? ''))) ?>
-        </li>
-      <?php else: ?>
-        <li><strong>Donateur :</strong> Anonyme</li>
-      <?php endif; ?>
-
-      <li><em>Date d'enregistrement :</em> <?= date('d/m/Y H:i') ?></li>
-    </ul>
-  </div>
-
-  <div class="btn-group">
-    <a class="button" href="index.php">Nouvelle Contribution</a>
-    <a class="button" href="dashboard.php">Aller au Tableau de Bord</a>
-    <a class="button" href="public_display.php">Voir l'Affichage Public</a>
-
-    <!-- Lien pour télécharger le PDF -->
-    <a class="button" href="../receipts/<?= htmlspecialchars($filename) ?>" target="_blank">
-      Télécharger le Reçu PDF
-    </a>
-  </div>
-</div>
-
+    <header>
+        <div class="logo">
+            <img src="mosque_logo.png" alt="Mosquée Errahma">
+        </div>
+        <h1>Gestion des Contributions</h1>
+    </header>
+    <div class="confirmation-container">
+        <div class="confirmation-header">
+            <h1>Merci pour votre contribution !</h1>
+            <p>Votre soutien est précieux pour notre communauté.</p>
+        </div>
+        <div class="confirmation-details">
+            <h2>Détails de la Contribution</h2>
+            <div class="detail-item">
+                <span>Type de Contribution :</span> <?= htmlspecialchars($confirmationType) ?>
+            </div>
+            <div class="detail-item">
+                <span>Montant :</span> <?= htmlspecialchars($confirmationMontant) ?>
+            </div>
+            <div class="detail-item">
+                <span>Type de Paiement :</span> <?= htmlspecialchars($confirmationPayment) ?>
+            </div>
+            <div class="detail-item">
+                <span>Contributeur :</span> <?= htmlspecialchars($confirmationContributor) ?>
+            </div>
+            <div class="detail-item">
+                <span>Date et Heure :</span> <?= htmlspecialchars($confirmationDate) ?>
+            </div>
+            <?php if ($moisConcernes): ?>
+                <div class="detail-item">
+                    <span>Mois Concerné :</span> <?= htmlspecialchars($moisConcernes) ?>
+                </div>
+            <?php endif; ?>
+        </div>
+        <div class="button-group">
+            <a href="index.php" class="primary-btn">Nouvelle Contribution</a>
+            <a href="dashboard.php" class="primary-btn">Tableau de Bord</a>
+            <a href="public_display.php" class="secondary-btn">Voir l'Affichage Public</a>
+            <a href="<?= htmlspecialchars($pdfLink) ?>" target="_blank" class="primary-btn">Télécharger le Reçu PDF</a>
+        </div>
+    </div>
+    <footer>
+        © 2024 Mosquée Errahma
+    </footer>
 </body>
 </html>

@@ -9,91 +9,166 @@ $currentMonth = date('Y-m');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestion des Contributions - Mosquée Errahma</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <h1>Formulaire de Contribution</h1>
-        <p id="infoMessage" style="color:green;"></p>
-        <form id="contributionForm" action="insert.php" method="POST">
-            <fieldset>
-                <legend>Type de Contribution</legend>
-                <label>Type de contribution :
+    <header>
+        <div class="logo">
+            <img src="mosque_logo.png" alt="Mosquée Errahma">
+        </div>
+        <h1>Gestion des Contributions</h1>
+    </header>
+    <main>
+        <div class="container">
+            <h2>Formulaire de Contribution</h2>
+            <p id="infoMessage" class="info-message"></p>
+            <form id="contributionForm" action="insert.php" method="POST">
+                <fieldset>
+                    <legend>Type de Contribution</legend>
+                    <label for="type_contribution">Type de contribution :</label>
                     <select name="type_contribution" id="type_contribution">
                         <option value="cotisation">Cotisation</option>
                         <option value="don">Don</option>
                         <option value="projet">Projet</option>
                     </select>
-                </label>
-            </fieldset>
-            
-            <fieldset>
-                <legend>Informations sur le Contributeur</legend>
-                
-                <label for="adherent_select">Adhérent existant :
-                    <select id="adherent_select" name="id_adherent">
-                        <option value="">-- Sélectionner un adhérent --</option>
-                    </select>
-                </label>
-                <button type="button" id="addAdherentBtn">Ajouter un nouvel adhérent</button>
-                <p id="noAdherentMessage" style="color:red;display:none;">Aucun adhérent disponible. Veuillez en ajouter un.</p>
+                </fieldset>
 
-                <label>Nom Adhérent : <input type="text" name="nom" id="nom" placeholder="Nom de l'adhérent" disabled></label>
-                <label>Prénom Adhérent : <input type="text" name="prenom" id="prenom" placeholder="Prénom de l'adhérent" disabled></label>
-                <label>Email Adhérent : <input type="email" name="email" id="email" placeholder="Email" disabled></label>
-                <label>Téléphone Adhérent : <input type="text" name="telephone" id="telephone" placeholder="Téléphone" disabled></label>
+                <fieldset>
+                    <legend>Informations sur le Contributeur</legend>
+                    
+                    <div class="flex-row">
+                        <div class="flex-item">
+                            <label for="adherent_select">Adhérent existant :</label>
+                            <select id="adherent_select" name="id_adherent">
+                                <option value="">-- Sélectionner un adhérent --</option>
+                            </select>
+                            <button type="button" id="addAdherentBtn" class="secondary-btn">Ajouter un adhérent</button>
+                            <p id="noAdherentMessage" class="error-message">Aucun adhérent disponible. Veuillez en ajouter un.</p>
+                        </div>
+                        <div class="flex-item">
+                            <label for="nom">Nom Adhérent :</label>
+                            <input type="text" name="nom" id="nom" placeholder="Nom de l'adhérent" disabled>
+                        </div>
+                        <div class="flex-item">
+                            <label for="prenom">Prénom Adhérent :</label>
+                            <input type="text" name="prenom" id="prenom" placeholder="Prénom de l'adhérent" disabled>
+                        </div>
+                        <div class="flex-item">
+                            <label for="email">Email Adhérent :</label>
+                            <input type="email" name="email" id="email" placeholder="Email" disabled>
+                        </div>
+                        <div class="flex-item">
+                            <label for="telephone">Téléphone Adhérent :</label>
+                            <input type="text" name="telephone" id="telephone" placeholder="Téléphone" disabled>
+                        </div>
+                    </div>
 
-                <label>
-                    <input type="checkbox" name="anonyme" id="anonyme" value="1"> Rendre anonyme (pour dons/projets non adhérent)
-                </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="anonyme" id="anonyme" value="1"> Rendre anonyme (pour dons/projets non adhérent)
+                    </label>
 
-                <div id="nonAdherentFields" class="hidden">
-                    <h3>Informations Donateur/Contributeur Non-Adhérent</h3>
-                    <label>Nom du Donateur : <input type="text" name="nom_donateur" id="nom_donateur" placeholder="Nom"></label>
-                    <label>Prénom du Donateur : <input type="text" name="prenom_donateur" id="prenom_donateur" placeholder="Prénom"></label>
-                    <label>Email (facultatif) : <input type="email" name="email_donateur" id="email_donateur" placeholder="ex: email@domaine.com"></label>
-                    <label>Téléphone (facultatif) : <input type="text" name="telephone_donateur" id="telephone_donateur" placeholder="ex: 0601020304"></label>
-                </div>
-            </fieldset>
+                    <div id="nonAdherentFields" class="hidden">
+                        <h3>Informations Donateur/Contributeur Non-Adhérent</h3>
+                        <div class="flex-row">
+                            <div class="flex-item">
+                                <label for="nom_donateur">Nom du Donateur :</label>
+                                <input type="text" name="nom_donateur" id="nom_donateur" placeholder="Nom">
+                            </div>
+                            <div class="flex-item">
+                                <label for="prenom_donateur">Prénom du Donateur :</label>
+                                <input type="text" name="prenom_donateur" id="prenom_donateur" placeholder="Prénom">
+                            </div>
+                            <div class="flex-item">
+                                <label for="email_donateur">Email (facultatif) :</label>
+                                <input type="email" name="email_donateur" id="email_donateur" placeholder="ex: email@domaine.com">
+                            </div>
+                            <div class="flex-item">
+                                <label for="telephone_donateur">Téléphone (facultatif) :</label>
+                                <input type="text" name="telephone_donateur" id="telephone_donateur" placeholder="ex: 0601020304">
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
 
-            <fieldset>
-                <legend>Détails de la Contribution</legend>
-                <label>Montant : <input type="number" step="0.01" name="montant" id="montant" required placeholder="Montant en €"></label>
-                <label>Type de paiement :
-                    <select name="type_paiement" id="type_paiement" required>
-                        <option value="">-- Choisir --</option>
-                        <option value="espèces">Espèces</option>
-                        <option value="carte">Carte</option>
-                        <option value="virement">Virement</option>
-                    </select>
-                </label>
-                <label>Mois (pour cotisation, indicatif) : 
-                    <input type="month" name="mois" value="<?= $currentMonth; ?>">
-                </label>
-            </fieldset>
+                <fieldset>
+                    <legend>Détails de la Contribution</legend>
+                    <div class="flex-row">
+                        <div class="flex-item">
+                            <label for="montant">Montant (€) :</label>
+                            <input type="number" step="0.01" name="montant" id="montant" required placeholder="Montant en €">
+                        </div>
+                        <div class="flex-item">
+                            <label for="type_paiement">Type de paiement :</label>
+                            <select name="type_paiement" id="type_paiement" required>
+                                <option value="">-- Choisir --</option>
+                                <option value="espèces">Espèces</option>
+                                <option value="carte">Carte</option>
+                                <option value="virement">Virement</option>
+                            </select>
+                        </div>
+                        <div class="flex-item">
+                            <label for="mois">Mois (pour cotisation) :</label>
+                            <input type="month" name="mois" id="mois" value="<?= htmlspecialchars($currentMonth); ?>">
+                        </div>
+                    </div>
+                </fieldset>
 
-            <button type="submit">Enregistrer</button>
-        </form>
-    </div>
-    <footer>&copy; 2024 Mosquée Errahma</footer>
+                <button type="submit" class="primary-btn">Enregistrer</button>
+            </form>
+        </div>
+    </main>
+    <footer>
+        © 2024 Mosquée Errahma
+    </footer>
 
+    <!-- Modal Add Adherent -->
     <div id="modalAddAdherent" class="modal hidden">
         <div class="modal-content">
             <span id="closeModal" class="close">&times;</span>
-            <h2>Ajouter un nouvel adhérent</h2>
+            <h2>Ajouter un Nouvel Adhérent</h2>
             <form id="newAdherentForm">
-                <label>Nom : <input type="text" name="nom" required placeholder="Nom"></label>
-                <label>Prénom : <input type="text" name="prenom" required placeholder="Prénom"></label>
-                <label>Email (obligatoire) : <input type="email" name="email" required placeholder="email@exemple.com"></label>
-                <label>Téléphone (obligatoire) : <input type="text" name="telephone" required placeholder="ex: 0601020304"></label>
-                <label>Montant mensuel (cotisation) : <input type="number" step="0.01" name="monthly_fee" placeholder="ex: 15.00"></label>
-                <label>Date début adhésion : <input type="date" name="start_date"></label>
-                <label>Date fin adhésion (facultatif) : <input type="date" name="end_date"></label>
-                <button type="submit">Ajouter</button>
+                <div class="flex-row">
+                    <div class="flex-item">
+                        <label for="new_nom">Nom :</label>
+                        <input type="text" name="nom" id="new_nom" required placeholder="Nom">
+                    </div>
+                    <div class="flex-item">
+                        <label for="new_prenom">Prénom :</label>
+                        <input type="text" name="prenom" id="new_prenom" required placeholder="Prénom">
+                    </div>
+                </div>
+                <div class="flex-row">
+                    <div class="flex-item">
+                        <label for="new_email">Email :</label>
+                        <input type="email" name="email" id="new_email" required placeholder="email@exemple.com">
+                    </div>
+                    <div class="flex-item">
+                        <label for="new_telephone">Téléphone :</label>
+                        <input type="text" name="telephone" id="new_telephone" required placeholder="ex: 0601020304">
+                    </div>
+                </div>
+                <div class="flex-row">
+                    <div class="flex-item">
+                        <label for="monthly_fee">Montant Mensuel (€) :</label>
+                        <input type="number" step="0.01" name="monthly_fee" id="monthly_fee" placeholder="ex: 15.00">
+                    </div>
+                    <div class="flex-item">
+                        <label for="start_date">Date Début Adhésion :</label>
+                        <input type="date" name="start_date" id="start_date">
+                    </div>
+                    <div class="flex-item">
+                        <label for="end_date">Date Fin Adhésion :</label>
+                        <input type="date" name="end_date" id="end_date">
+                    </div>
+                </div>
+                <button type="submit" class="primary-btn">Ajouter</button>
+                <div id="adherentError" class="error-message"></div>
             </form>
-            <div id="adherentError" class="error-message"></div>
         </div>
     </div>
 
+    <!-- JavaScript Intégré -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const adherentSelect = document.getElementById('adherent_select');
