@@ -599,3 +599,29 @@ footer {
 .membre-actions button:hover {
     background-color: #1a4f7a;
 }
+
+/* Ajoutez ceci dans votre fichier styles/style-dashboard.css */
+
+.export-group {
+    margin-top: 20px;
+    text-align: right;
+}
+
+.export-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #E53E3E; /* Rouge pour l'exportation PDF */
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 600;
+    transition: background-color 0.3s;
+}
+
+.export-btn:hover {
+    background: #C53030;
+}
+
+.export-btn i {
+    margin-right: 5px;
+}

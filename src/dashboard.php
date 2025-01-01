@@ -242,14 +242,36 @@ $total = (int)$stmt_total->fetch(PDO::FETCH_ASSOC)['count'];
 $total_pages = ceil($total / $items_per_page);
 
 // Gestion du tableau des cotisations mensuelles
-// Récupération de tous les adhérents (non anonymes)
+// Modification de la requête des adhérents pour les cotisations mensuelles
 $adherents = $db->prepare("
-    SELECT id, nom, prenom, monthly_fee, start_date, end_date 
-    FROM Adherents 
-    WHERE anonyme = 0
-    ORDER BY nom, prenom
+    SELECT DISTINCT A.id, A.nom, A.prenom, A.monthly_fee, A.start_date, A.end_date 
+    FROM Adherents A
+    WHERE A.anonyme = 0 
+    AND A.monthly_fee > 0
+    AND (
+        -- Adhésion active pendant l'année sélectionnée
+        (
+            (A.start_date IS NULL OR A.start_date <= :yearEnd)
+            AND 
+            (A.end_date IS NULL OR A.end_date >= :yearStart)
+        )
+        OR
+        -- Ou a au moins une cotisation dans l'année
+        EXISTS (
+            SELECT 1 
+            FROM Cotisation_Months CM 
+            WHERE CM.id_adherent = A.id 
+            AND CM.year = :year
+        )
+    )
+    ORDER BY A.nom, A.prenom
 ");
-$adherents->execute();
+
+$adherents->execute([
+    ':yearStart' => $filter_year . '-01-01',
+    ':yearEnd' => $filter_year . '-12-31',
+    ':year' => $filter_year
+]);
 $adherents = $adherents->fetchAll(PDO::FETCH_ASSOC);
 
 // Labels pour les mois
@@ -260,8 +282,8 @@ $cotisations_mensuelles = [];
 foreach ($adherents as $ad) {
     $idAd = $ad['id'];
     $monthly_fee = (float)$ad['monthly_fee'];
-    if ($monthly_fee <= 0) continue; // Pas de cotisation si fee <= 0
-
+    
+    // Récupérer les cotisations mensuelles
     $stmt = $db->prepare("
         SELECT month, paid_amount 
         FROM Cotisation_Months 
@@ -277,20 +299,37 @@ foreach ($adherents as $ad) {
         $mois_status[intval($md['month'])] = (float)$md['paid_amount'];
     }
 
-    // Récupération des dates d'adhésion
+    // Vérifier si l'adhérent doit apparaître dans le tableau
     $start = $ad['start_date'] ? new DateTime($ad['start_date']) : null;
-    $end   = $ad['end_date']   ? new DateTime($ad['end_date'])   : null;
+    $end = $ad['end_date'] ? new DateTime($ad['end_date']) : null;
+
+    // Vérifier si l'adhérent a au moins un mois applicable dans l'année
+    $hasApplicableMonth = false;
+    foreach ($mois_labels as $index => $label) {
+        $m = $index + 1;
+        $dateM = new DateTime("{$filter_year}-{$m}-01");
+        
+        if ((!$start || $dateM >= $start) && (!$end || $dateM <= $end)) {
+            $hasApplicableMonth = true;
+            break;
+        }
+    }
+
+    // Ne pas ajouter l'adhérent s'il n'a aucun mois applicable
+    if (!$hasApplicableMonth) {
+        continue;
+    }
 
     $cotisations_mensuelles[] = [
         'nom_complet' => $ad['nom'] . ' ' . $ad['prenom'],
-        'cotisations' => [] // To be filled per month
+        'cotisations' => []
     ];
 
     foreach ($mois_labels as $index => $label) {
         $m = $index + 1;
         $dateM = new DateTime("{$filter_year}-{$m}-01");
 
-        // Vérifier si la cotisation est applicable
+        // Vérifier si la cotisation est applicable pour ce mois
         $applicable = true;
         if ($start && $dateM < $start) $applicable = false;
         if ($end && $dateM > $end)     $applicable = false;
@@ -298,17 +337,13 @@ foreach ($adherents as $ad) {
         if (!$applicable) {
             $cotisations_mensuelles[count($cotisations_mensuelles)-1]['cotisations'][] = 'N/A';
         } else {
-            if ($monthly_fee <= 0) {
-                $cotisations_mensuelles[count($cotisations_mensuelles)-1]['cotisations'][] = 'N/A';
-            } else {
-                $paid_amount = $mois_status[$m] ?? 0;
-                $reste = $monthly_fee - $paid_amount;
+            $paid_amount = $mois_status[$m] ?? 0;
+            $reste = $monthly_fee - $paid_amount;
 
-                if ($reste <= 0) {
-                    $cotisations_mensuelles[count($cotisations_mensuelles)-1]['cotisations'][] = 'Payé';
-                } else {
-                    $cotisations_mensuelles[count($cotisations_mensuelles)-1]['cotisations'][] = "-{$reste}€";
-                }
+            if ($reste <= 0) {
+                $cotisations_mensuelles[count($cotisations_mensuelles)-1]['cotisations'][] = 'Payé';
+            } else {
+                $cotisations_mensuelles[count($cotisations_mensuelles)-1]['cotisations'][] = "-{$reste}€";
             }
         }
     }
@@ -506,6 +541,11 @@ foreach ($adherents as $ad) {
                 </tbody>
             </table>
 
+            <!-- Bouton d'exportation en PDF -->
+            <div class="export-group">
+                <a href="export.php?tab=list&filter_type=<?= urlencode($filter_type) ?>&filter_year=<?= urlencode($filter_year) ?>" class="export-btn"><i class="fas fa-file-pdf"></i> Exporter en PDF</a>
+            </div>
+
             <!-- Pagination -->
             <?php if ($total_pages > 1): ?>
             <div class="pagination">
@@ -617,7 +657,7 @@ foreach ($adherents as $ad) {
 </main>
 
 <footer>
-    © 2024 Mosquée Errahma
+    © 2025 Mosquée Errahma
 </footer>
 
 <!-- Modale Ajouter/Modifier Adhérent -->

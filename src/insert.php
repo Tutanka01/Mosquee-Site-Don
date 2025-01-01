@@ -145,7 +145,7 @@ if (!empty($errors)) {
             <a href="index.php">Retour au formulaire</a>
         </div>
         <footer>
-            © 2024 Mosquée Errahma
+            © 2025 Mosquée Errahma
         </footer>
     </body>
     </html>

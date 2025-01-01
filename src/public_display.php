@@ -238,28 +238,30 @@ $paidAmounts = getAllPaidAmounts($db, $idAdherents, $currentYear);
             try {
                 // Date du jour
                 const today = new Date();
-
-                // Conversion en Hijri avec Um Al Qura
-                const dHijri = umalqura(today);
-                let hijriNow = dHijri.hy; // Année Hijri actuelle
-
-                // Calcul de la date du 1er Muharram de l'année suivante
-                const nextHijri = hijriNow + 1;
-                const dateOneMuharramNext = umalqura(new Date(today.getFullYear(), today.getMonth(), today.getDate()), nextHijri, 1, 1).date;
-
-                let finalHijriYear;
-                if (today >= new Date(dateOneMuharramNext)) {
-                    // On a déjà franchi 1er Muharram => on est dans l'année Hijri suivante
-                    finalHijriYear = nextHijri;
-                } else {
-                    // Sinon, on reste dans l'année Hijri actuelle
-                    finalHijriYear = hijriNow;
+                
+                // Conversion en date hijri
+                const hijriDate = umalqura(today);
+                const hijriYear = hijriDate.hy;
+                const hijriMonth = hijriDate.hm;
+                
+                // Si nous sommes dans les derniers mois de l'année hijri (Dhul Qa'dah et Dhul Hijjah)
+                // nous affichons l'année en cours
+                // Dhul Qa'dah = 11, Dhul Hijjah = 12
+                const finalHijriYear = hijriMonth >= 1 && hijriMonth <= 12 ? hijriYear : hijriYear - 1;
+                
+                // Afficher l'année dans le span
+                const hijriYearElement = document.getElementById('hijriYear');
+                if (hijriYearElement) {
+                    hijriYearElement.textContent = finalHijriYear;
                 }
-
-                // Afficher l'année Hijri dans le span
-                document.getElementById('hijriYear').textContent = finalHijriYear;
+                
+                // Debug - Afficher les informations dans la console
+                console.log('Date actuelle:', today);
+                console.log('Mois Hijri:', hijriMonth);
+                console.log('Année Hijri calculée:', finalHijriYear);
+                
             } catch (error) {
-                console.error('Erreur lors du calcul de l\'année Hijri :', error);
+                console.error('Erreur lors du calcul de l\'année Hijri:', error);
                 document.getElementById('hijriYear').textContent = 'N/A';
             }
         });

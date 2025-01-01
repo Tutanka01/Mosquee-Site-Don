@@ -121,7 +121,7 @@ $currentMonth = date('Y-m');
         </div>
     </main>
     <footer>
-        © 2024 Mosquée Errahma
+        © 2025 Mosquée Errahma
     </footer>
 
     <!-- Modal Add Adherent -->
