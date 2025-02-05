@@ -66,8 +66,8 @@ Avant de commencer, assurez-vous d'avoir installé :
 
 1. **Clonez le dépôt :**
     ```sh
-    git clone https://github.com/votre-utilisateur/votre-repo.git
-    cd votre-repo
+    git clone https://github.com/Tutanka01/Mosquee-Site-Don
+    cd Mosquee-Site-Don
     ```
 
 2. **Lancez les services avec Docker Compose :**
