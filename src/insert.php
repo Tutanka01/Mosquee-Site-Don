@@ -592,9 +592,6 @@ $pdfLink = "receipts/" . $filename;
 </head>
 <body>
     <header>
-        <div class="logo">
-            <img src="images/mosque_logo.png" alt="Mosquée Errahma">
-        </div>
         <h1>Gestion des Contributions</h1>
     </header>
     <div class="confirmation-container">
