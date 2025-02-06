@@ -2,8 +2,6 @@
 
 Bienvenue dans le **Gestion des Contributions** de la **Mosquée Errahma** ! 🕌✨ Ce projet ambitieux a pour mission de simplifier la gestion des contributions, dons, cotisations et projets, tout en assurant un suivi efficace des adhérents et donateurs. Grâce à ce système, la Mosquée Errahma peut se concentrer sur l'essentiel : servir la communauté avec transparence et efficacité.
 
-![Mosquée Errahma Logo](images/mosque_logo.png)
-
 ## Table des Matières
 
 - [À propos](#à-propos)
@@ -68,8 +66,8 @@ Avant de commencer, assurez-vous d'avoir installé :
 
 1. **Clonez le dépôt :**
     ```sh
-    git clone https://github.com/votre-utilisateur/votre-repo.git
-    cd votre-repo
+    git clone https://github.com/Tutanka01/Mosquee-Site-Don
+    cd Mosquee-Site-Don
     ```
 
 2. **Lancez les services avec Docker Compose :**
