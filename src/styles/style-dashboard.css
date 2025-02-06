@@ -336,11 +336,13 @@ footer {
     height: 100%;
     overflow: auto;
     background-color: rgba(0,0,0,0.4); /* Fond semi-transparent */
+    align-items: flex-start; /* Aligner en haut */
+     padding-top: 20px;
 }
 
 .modal-content {
     background-color: var(--card-bg);
-    margin: 10% auto; /* 10% du haut et centré horizontalement */
+    margin: 0 auto; /* Centrer horizontalement */
     padding: 20px;
     border: 1px solid #888;
     width: 90%;
@@ -363,20 +365,61 @@ footer {
     text-decoration: none;
 }
 
-.modal-content form label {
-    display: block;
-    margin-top: 10px;
+/* Styles spécifiques à la modale d'adhérent, inspirés de style-index-confirmation.css */
+.modal-content fieldset {
+    border: 1px solid #cbd5e0;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 20px;
 }
 
-.modal-content form input {
-    width: 100%;
-    padding: 8px;
-    margin-top: 5px;
-    border: 1px solid #ccc;
-    border-radius: var(--border-radius);
+.modal-content legend {
+    padding: 0 10px;
+    font-weight: 600;
+    color: #2d3748;
 }
+
+.modal-content label {
+    display: block;
+    margin-bottom: 5px;
+    color: #4a5568;
+    font-weight: 600;
+}
+/* label superposé au dessus de l'input date */
+.modal-content  .flex-item {
+    position: relative; /* Ajout de position relative */
+
+}
+
+.modal-content input[type="text"],
+.modal-content input[type="email"],
+.modal-content input[type="number"],
+.modal-content input[type="date"],
+.modal-content select {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #cbd5e0;
+    border-radius: 5px;
+    font-size: 1em;
+     margin-top: 15px;
+}
+
+.modal-content .flex-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.modal-content .flex-item {
+    flex: 1 1 48%; /* Pour que les éléments prennent la moitié de la largeur */
+    min-width: 200px; /* Largeur minimale pour éviter que les champs ne deviennent trop petits */
+}
+
 
 .modal-content form button {
+    display: block; /* Occupe toute la largeur */
+    width: 100%;
     margin-top: 15px;
     padding: 10px 15px;
     background-color: var(--primary-color);
@@ -479,6 +522,9 @@ footer {
 
     .legend span {
         margin-right: 15px;
+    }
+     .modal-content .flex-item {
+        flex: 1 1 100%; /* Les éléments prennent toute la largeur sur les petits écrans */
     }
 }
 

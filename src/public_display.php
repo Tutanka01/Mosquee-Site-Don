@@ -1,93 +1,113 @@
 <?php
 // File: /src/public_display.php
 
-// Activer le reporting d'erreurs pour le développement (à désactiver en production)
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 include 'db.php';
 
-// 1) Déterminer l'année grégorienne pour le tableau
 $currentYear = date('Y');
-
-// 2) Définir la pagination
-$limit = 20; // Nombre d'adhérents par page
+$limit = 20; // Adhérents par page (ajustable)
 $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-// 3) Récupérer le nombre total d'adhérents
+// Récupérer le nombre total d'adhérents *pertinents* (non anonymes, avec cotisation, actifs cette année)
 try {
-    $countStmt = $db->prepare("SELECT COUNT(*) FROM Adherents");
-    $countStmt->execute();
+    $countStmt = $db->prepare("
+        SELECT COUNT(DISTINCT A.id)
+        FROM Adherents A
+        WHERE A.anonyme = 0  -- Non anonymes
+          AND A.monthly_fee > 0  -- Avec une cotisation mensuelle définie
+          AND (
+              (A.start_date IS NULL OR A.start_date <= :yearEnd)  -- Commencé avant la fin de l'année
+              AND (A.end_date IS NULL OR A.end_date >= :yearStart) -- Terminé après le début de l'année
+              OR EXISTS (
+                  SELECT 1
+                  FROM Cotisation_Months CM
+                  WHERE CM.id_adherent = A.id
+                    AND CM.year = :year  -- Ou avec des cotisations enregistrées pour l'année
+              )
+          )
+    ");
+    $countStmt->execute([':yearStart' => $currentYear . '-01-01', ':yearEnd' => $currentYear . '-12-31', ':year' => $currentYear]);
     $totalAdherents = $countStmt->fetchColumn();
 } catch (PDOException $e) {
-    die("Erreur lors du comptage des adhérents : " . htmlspecialchars($e->getMessage()));
+    die("Erreur lors du comptage des adhérents : " . htmlspecialchars($e->getMessage())); // Gestion d'erreur améliorée
 }
 
-// 4) Récupérer la liste des adhérents avec leur cotisation mensuelle pour la page courante
+// Récupérer les adhérents *pertinents* pour la page courante (AVEC FILTRES et PAGINATION)
 try {
     $adherents = $db->prepare("
-        SELECT id, nom, prenom, monthly_fee, start_date, end_date
-        FROM Adherents
-        ORDER BY nom, prenom
-        LIMIT :limit OFFSET :offset
+        SELECT DISTINCT A.id, A.nom, A.prenom, A.monthly_fee, A.start_date, A.end_date
+        FROM Adherents A
+        WHERE A.anonyme = 0
+          AND A.monthly_fee > 0
+          AND (
+              (A.start_date IS NULL OR A.start_date <= :yearEnd)
+              AND (A.end_date IS NULL OR A.end_date >= :yearStart)
+              OR EXISTS (
+                  SELECT 1
+                  FROM Cotisation_Months CM
+                  WHERE CM.id_adherent = A.id
+                    AND CM.year = :year
+              )
+          )
+        ORDER BY A.nom, A.prenom  -- Tri par nom et prénom
+        LIMIT :limit OFFSET :offset  -- Pagination
     ");
-    $adherents->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-    $adherents->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+    $adherents->bindValue(':yearStart', $currentYear . '-01-01');
+    $adherents->bindValue(':yearEnd', $currentYear . '-12-31');
+    $adherents->bindValue(':year', $currentYear);
+    $adherents->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $adherents->bindValue(':offset', $offset, PDO::PARAM_INT);
     $adherents->execute();
     $adherents = $adherents->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    die("Erreur lors de la récupération des adhérents : " . htmlspecialchars($e->getMessage()));
+    die("Erreur lors de la récupération des adhérents : " . htmlspecialchars($e->getMessage())); // Gestion d'erreur améliorée
 }
 
-// 5) Fonction optimisée pour récupérer les cotisations de tous les adhérents en une seule requête
+// Fonction optimisée pour récupérer les cotisations (utilise l'année en paramètre)
 function getAllPaidAmounts($db, $idAdherents, $year) {
-    if (empty($idAdherents)) {
-        return [];
-    }
+    if (empty($idAdherents)) { return []; }
 
-    // Préparer les paramètres pour la requête IN
     $placeholders = rtrim(str_repeat('?,', count($idAdherents)), ',');
     $query = "
         SELECT id_adherent, month, SUM(paid_amount) as total_paid
         FROM Cotisation_Months
-        WHERE id_adherent IN ($placeholders)
-          AND year = ?
+        WHERE id_adherent IN ($placeholders) AND year = ?
         GROUP BY id_adherent, month
     ";
 
     try {
         $stmt = $db->prepare($query);
-        $params = array_merge($idAdherents, [$year]);
+        $params = array_merge($idAdherents, [$year]); // Utilisation de l'année
         $stmt->execute($params);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $paidAmounts = [];
+        foreach ($results as $row) {
+            $paidAmounts[$row['id_adherent']][$row['month']] = (float)$row['total_paid'];
+        }
+        return $paidAmounts;
     } catch (PDOException $e) {
-        die("Erreur lors de la récupération des cotisations : " . htmlspecialchars($e->getMessage()));
+        die("Erreur SQL: " . $e->getMessage()); // Meilleure gestion des erreurs
     }
-
-    // Organiser les résultats dans un tableau multidimensionnel
-    $paidAmounts = [];
-    foreach ($results as $row) {
-        $paidAmounts[$row['id_adherent']][$row['month']] = (float)$row['total_paid'];
-    }
-
-    return $paidAmounts;
 }
 
-// Récupérer tous les ID des adhérents de la page courante
+// Récupération des cotisations pour les adhérents de la page
 $idAdherents = array_column($adherents, 'id');
-
-// Obtenir toutes les cotisations payées pour l'année en cours
 $paidAmounts = getAllPaidAmounts($db, $idAdherents, $currentYear);
 
-// 6) Calcul de l'année hijri côté client
+// Mois pour les en-têtes du tableau
+$mois_labels = ["Janv", "Févr", "Mars", "Avril", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
+
+// Fonction de formatage des montants (REMISE EN PLACE)
+function formatAmount($amount) {
+    return ($amount == floor($amount)) ? number_format($amount, 0, ',', ' ') : number_format($amount, 2, ',', ' ');
+}
 
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  <!-- Important pour le responsive -->
     <title>Mosquée Errahma - Affichage Public</title>
     <link rel="stylesheet" href="styles/style-public-display.css">
     <!-- Google Fonts -->
@@ -96,11 +116,7 @@ $paidAmounts = getAllPaidAmounts($db, $idAdherents, $currentYear);
 <body>
     <div class="header">
         <h1>مسجد الرحمة (Mosquée Errahma)</h1>
-        <!-- Affichage de l'année grégorienne et hijri -->
-        <h2>
-            LA CHARTE ANNÉE <?= htmlspecialchars($currentYear) ?> - Hijri 
-            <span id="hijriYear">1445</span>
-        </h2>
+        <h2>LA CHARTE ANNÉE <?= htmlspecialchars($currentYear) ?> - Hijri <span id="hijriYear"></span></h2>
     </div>
 
     <div class="container">
@@ -115,73 +131,52 @@ $paidAmounts = getAllPaidAmounts($db, $idAdherents, $currentYear);
                         <tr>
                             <th>N°</th>
                             <th class="name-col">Nom & Prénom</th>
-                            <th>Janv</th>
-                            <th>Févr</th>
-                            <th>Mars</th>
-                            <th>Avril</th>
-                            <th>Mai</th>
-                            <th>Juin</th>
-                            <th>Juill</th>
-                            <th>Août</th>
-                            <th>Sept</th>
-                            <th>Oct</th>
-                            <th>Nov</th>
-                            <th>Déc</th>
+                            <?php foreach ($mois_labels as $mois): ?>
+                                <th><?= htmlspecialchars($mois) ?></th>
+                            <?php endforeach; ?>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php 
-                        $num = $offset + 1;
-                        // Pour chaque adhérent
-                        foreach ($adherents as $ad) {
-                            echo "<tr>";
-                            echo "<td>{$num}</td>";
-                            echo "<td class='name-col'>" . htmlspecialchars($ad['nom'] . " " . $ad['prenom']) . "</td>";
+                        <?php $num = $offset + 1; // Numérotation continue
+                        foreach ($adherents as $ad): ?>
+                            <tr>
+                                <td><?= $num++ ?></td>
+                                <td class='name-col'><?= htmlspecialchars($ad['nom'] . " " . $ad['prenom']) ?></td>
+                                <?php
+                                $monthlyFee = (float)$ad['monthly_fee'];
+                                $start = $ad['start_date'] ? new DateTime($ad['start_date']) : null;
+                                $end = $ad['end_date'] ? new DateTime($ad['end_date']) : null;
 
-                            $monthlyFee = (float)$ad['monthly_fee'];
-                            // Récupération du start_date et end_date
-                            $start = $ad['start_date'] ? new DateTime($ad['start_date']) : null;
-                            $end = $ad['end_date'] ? new DateTime($ad['end_date']) : null;
+                                // Boucle sur les mois
+                                for ($m = 1; $m <= 12; $m++) {
+                                    $thisMonth = new DateTime("$currentYear-$m-01");
 
-                            // Boucle sur les 12 mois de l’année $currentYear
-                            for ($m=1; $m <= 12; $m++) {
-                                // Construire la date du 1er du mois
-                                $thisMonth = new DateTime("$currentYear-$m-01");
+                                    // Vérification des dates (simplifiée)
+                                    if (($start && $thisMonth < $start) || ($end && $thisMonth > $end)) {
+                                        echo "<td class='na'>N/A</td>";
+                                        continue;
+                                    }
 
-                                // 1) Vérifier si c’est avant la date d’arrivée ou après la date de fin
-                                if ($start && $thisMonth < $start) {
-                                    // Pas applicable => N/A
-                                    echo "<td class='na'>N/A</td>";
-                                    continue;
+                                     // Si pas de cotisation mensuelle, N/A
+                                     if ($monthlyFee <= 0) {
+                                        echo "<td class='na'>N/A</td>";
+                                        continue;
+                                    }
+
+                                    $paid = $paidAmounts[$ad['id']][$m] ?? 0.0; // Montant payé pour ce mois
+                                    $reste = $monthlyFee - $paid;
+
+                                    if ($paid <= 0) {
+                                        echo "<td class='nonpaye'>0€</td>";
+                                    } elseif ($reste <= 0) {
+                                        echo "<td class='paid'>" . formatAmount($paid) . "€</td>";
+                                    } else {
+                                        echo "<td class='partiel'>" . formatAmount($paid) . "/" . formatAmount($monthlyFee) . "€</td>";
+                                    }
                                 }
-                                if ($end && $thisMonth > $end) {
-                                    // Après la date de fin d'adhésion => N/A
-                                    echo "<td class='na'>N/A</td>";
-                                    continue;
-                                }
-
-                                // 2) Ensuite, la logique de paid_amount
-                                $paid = isset($paidAmounts[$ad['id']][$m]) ? $paidAmounts[$ad['id']][$m] : 0.0;
-
-                                if ($monthlyFee <= 0) {
-                                    // L’adhérent n’a pas de monthlyFee => N/A ou “-”
-                                    echo "<td class='na'>N/A</td>";
-                                    continue;
-                                }
-
-                                if ($paid <= 0) {
-                                    echo "<td class='nonpaye'>0€</td>";
-                                } elseif ($paid >= $monthlyFee) {
-                                    echo "<td class='paid'>" . formatAmount($paid) . "€</td>";
-                                } else {
-                                    // Partiel
-                                    echo "<td class='partiel'>" . formatAmount($paid) . "/" . formatAmount($monthlyFee) . "€</td>";
-                                }
-                            }
-                            echo "</tr>";
-                            $num++;
-                        }
-                        ?>
+                                ?>
+                            </tr>
+                        <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
@@ -195,91 +190,45 @@ $paidAmounts = getAllPaidAmounts($db, $idAdherents, $currentYear);
             </div>
 
             <!-- Pagination -->
-            <?php
-            $totalPages = ceil($totalAdherents / $limit);
+            <?php $totalPages = ceil($totalAdherents / $limit);
             if ($totalPages > 1): ?>
                 <div class="pagination">
                     <?php if ($page > 1): ?>
-                        <a href="?page=<?= $page - 1 ?>" class="pagination-btn">&laquo; Précédent</a>
-                    <?php endif; ?>
-
-                    <?php
-                    // Afficher un maximum de 5 pages pour la navigation
+                        <a href="?page=<?= $page - 1 ?>" class="pagination-btn">« Précédent</a>
+                    <?php endif;
+                    // Affichage simplifié (page courante et quelques pages autour)
                     $startPage = max(1, $page - 2);
                     $endPage = min($totalPages, $page + 2);
                     for ($p = $startPage; $p <= $endPage; $p++): ?>
-                        <?php if ($p == $page): ?>
-                            <span class="current-page"><?= $p ?></span>
-                        <?php else: ?>
-                            <a href="?page=<?= $p ?>" class="pagination-btn"><?= $p ?></a>
-                        <?php endif; ?>
-                    <?php endfor; ?>
-
-                    <?php if ($page < $totalPages): ?>
-                        <a href="?page=<?= $page + 1 ?>" class="pagination-btn">Suivant &raquo;</a>
+                        <a href="?page=<?= $p ?>" class="pagination-btn <?= ($p == $page) ? 'current-page' : '' ?>"><?= $p ?></a>
+                    <?php endfor;
+                    if ($page < $totalPages): ?>
+                        <a href="?page=<?= $page + 1 ?>" class="pagination-btn">Suivant »</a>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
         <?php endif; ?>
     </div>
 
-    <footer>
-        © 2024 Mosquée Errahma
-    </footer>
+    <footer>© 2024 Mosquée Errahma</footer>
 
-    <!-- Inclusion de la librairie Um Al Qura depuis unpkg -->
+    <!-- Calcul de l'année Hijri (côté client) -->
     <script src="https://unpkg.com/@umalqura/core@0.0.7/dist/umalqura.min.js"></script>
     <script>
-        /**
-         * Calcul de l'année Hijri actuelle basée sur la date du jour.
-         * Utilise la librairie Um Al Qura pour une précision accrue.
-         */
         document.addEventListener('DOMContentLoaded', () => {
             try {
-                // Date du jour
                 const today = new Date();
-                
-                // Conversion en date hijri
                 const hijriDate = umalqura(today);
                 const hijriYear = hijriDate.hy;
                 const hijriMonth = hijriDate.hm;
-                
-                // Si nous sommes dans les derniers mois de l'année hijri (Dhul Qa'dah et Dhul Hijjah)
-                // nous affichons l'année en cours
-                // Dhul Qa'dah = 11, Dhul Hijjah = 12
-                const finalHijriYear = hijriMonth >= 1 && hijriMonth <= 12 ? hijriYear : hijriYear - 1;
-                
-                // Afficher l'année dans le span
-                const hijriYearElement = document.getElementById('hijriYear');
-                if (hijriYearElement) {
-                    hijriYearElement.textContent = finalHijriYear;
-                }
-                
-                // Debug - Afficher les informations dans la console
-                console.log('Date actuelle:', today);
-                console.log('Mois Hijri:', hijriMonth);
-                console.log('Année Hijri calculée:', finalHijriYear);
-                
+                // Simplification: on affiche l'année Hijri directement
+                const finalHijriYear = hijriMonth >= 1 && hijriMonth <= 12 ? hijriYear : hijriYear -1;
+                document.getElementById('hijriYear').textContent = finalHijriYear;
             } catch (error) {
-                console.error('Erreur lors du calcul de l\'année Hijri:', error);
-                document.getElementById('hijriYear').textContent = 'N/A';
+                console.error('Erreur Hijri:', error); // Gestion d'erreur
+                document.getElementById('hijriYear').textContent = 'N/A'; // Valeur par défaut
             }
         });
-
-        /**
-         * Fonction pour formater les montants.
-         * Affiche les cents seulement s'ils ne sont pas nuls.
-         */
-        function formatAmount(amount) {
-            return amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
-        }
     </script>
 </body>
 </html>
-
-<?php
-// Fonction pour formater les montants sans les cents si inutiles
-function formatAmount($amount) {
-    return ($amount == floor($amount)) ? number_format($amount, 0) : number_format($amount, 2);
-}
-?>

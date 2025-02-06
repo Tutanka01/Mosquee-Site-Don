@@ -364,9 +364,6 @@ foreach ($adherents as $ad) {
 </head>
 <body>
 <header>
-    <div class="logo">
-        <img src="../images/mosque_logo.png" alt="Mosquée Errahma">
-    </div>
     <h1>Dashboard Administrateur</h1>
 </header>
 <main>
@@ -663,30 +660,52 @@ foreach ($adherents as $ad) {
 <!-- Modale Ajouter/Modifier Adhérent -->
 <div id="membreModal" class="modal">
     <div class="modal-content">
-        <span class="close">&times;</span>
+        <span class="close">×</span>
         <h2 id="membreModalTitle">Ajouter un adhérent</h2>
         <form id="membreForm">
             <input type="hidden" name="id" id="membre_id">
-            <label for="membre_nom">Nom :</label>
-            <input type="text" name="nom" id="membre_nom" required placeholder="Nom">
 
-            <label for="membre_prenom">Prénom :</label>
-            <input type="text" name="prenom" id="membre_prenom" required placeholder="Prénom">
+            <fieldset>
+                <legend>Informations sur l'Adhérent</legend>
+                <div class="flex-row">
+                    <div class="flex-item">
+                        <label for="membre_nom">Nom :</label>
+                        <input type="text" name="nom" id="membre_nom" required placeholder="Nom">
+                    </div>
+                    <div class="flex-item">
+                        <label for="membre_prenom">Prénom :</label>
+                        <input type="text" name="prenom" id="membre_prenom" required placeholder="Prénom">
+                    </div>
+                </div>
+                <div class="flex-row">
+                    <div class="flex-item">
+                        <label for="membre_email">Email :</label>
+                        <input type="email" name="email" id="membre_email" required placeholder="email@exemple.com">
+                    </div>
+                    <div class="flex-item">
+                        <label for="membre_telephone">Téléphone :</label>
+                        <input type="text" name="telephone" id="membre_telephone" required placeholder="ex: 0601020304">
+                    </div>
+                </div>
+            </fieldset>
 
-            <label for="membre_email">Email :</label>
-            <input type="email" name="email" id="membre_email" required placeholder="email@exemple.com">
-
-            <label for="membre_telephone">Téléphone :</label>
-            <input type="text" name="telephone" id="membre_telephone" required placeholder="ex: 0601020304">
-
-            <label for="membre_monthly_fee">Montant Mensuel (€) :</label>
-            <input type="number" step="0.01" name="monthly_fee" id="membre_monthly_fee" placeholder="ex: 15.00">
-
-            <label for="membre_start_date">Date Début Adhésion :</label>
-            <input type="date" name="start_date" id="membre_start_date">
-
-            <label for="membre_end_date">Date Fin Adhésion :</label>
-            <input type="date" name="end_date" id="membre_end_date">
+            <fieldset>
+                <legend>Détails de l'Adhésion</legend>
+                <div class="flex-row">
+                    <div class="flex-item">
+                        <label for="membre_monthly_fee">Montant Mensuel (€) :</label>
+                        <input type="number" step="0.01" name="monthly_fee" id="membre_monthly_fee" placeholder="ex: 15.00">
+                    </div>
+                    <div class="flex-item">
+                        <label for="membre_start_date">Date Début Adhésion :</label>
+                        <input type="date" name="start_date" id="membre_start_date">
+                    </div>
+                    <div class="flex-item">
+                        <label for="membre_end_date">Date Fin Adhésion :</label>
+                        <input type="date" name="end_date" id="membre_end_date">
+                    </div>
+                </div>
+            </fieldset>
 
             <button type="submit"><i class="fas fa-save"></i> Enregistrer</button>
         </form>
@@ -697,7 +716,7 @@ foreach ($adherents as $ad) {
 <!-- Modale Suppression -->
 <div id="deleteModal" class="modal">
     <div class="modal-content">
-        <span class="close">&times;</span>
+        <span class="close">×</span>
         <h2>Supprimer Adhérent</h2>
         <p>Êtes-vous sûr de vouloir supprimer cet adhérent ? Cette action est irréversible.</p>
         <input type="hidden" id="delete_id">
@@ -1030,6 +1049,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(resp => {
                 if (resp.success) {
                     const ad = resp.data;
+                    membreForm.reset(); // Reset avant de remplir
                     membre_id.value = ad.id;
                     membre_nom.value = ad.nom;
                     membre_prenom.value = ad.prenom;
@@ -1058,14 +1078,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Ajouter un membre
     addMembreBtn.addEventListener('click', () => {
-        membre_id.value = '';
-        membre_nom.value = '';
-        membre_prenom.value = '';
-        membre_email.value = '';
-        membre_telephone.value = '';
-        membre_monthly_fee.value = '';
-        membre_start_date.value = '';
-        membre_end_date.value = '';
+        membreForm.reset(); // Réinitialise complètement le formulaire
+        membre_id.value = ''; // Important : s'assurer que l'ID est vide
         membreModalTitle.textContent = "Ajouter un adhérent";
         membreError.textContent = '';
         membreModal.style.display = 'flex';
